@@ -1,0 +1,123 @@
+<div class="auth-page">
+  <div class="auth-card" [formGroup]="form">
+    <h2 class="title">Create Account</h2>
+    <p class="subtitle"></p>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <div class="input-wrapper">
+          <span class="input-icon left" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <path d="M4 20a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+          </span>
+          <input id="firstName" type="text" formControlName="firstName" placeholder="First name" />
+        </div>
+        <small class="error" *ngIf="form.get('firstName')?.touched && form.get('firstName')?.invalid">
+          First name must be at least 2 letters.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <label for="lastName">Last Name</label>
+        <div class="input-wrapper">
+          <span class="input-icon left" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <path d="M4 20a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+          </span>
+          <input id="lastName" type="text" formControlName="lastName" placeholder="Last name" />
+        </div>
+        <small class="error" *ngIf="form.get('lastName')?.touched && form.get('lastName')?.invalid">
+          Last name must be at least 2 letters.
+        </small>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="email">Email</label>
+      <div class="input-wrapper">
+        <span class="input-icon left" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M3 6h18v12H3z" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M3 6l9 6 9-6" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </span>
+        <input id="email" type="email" formControlName="email" placeholder="Enter your email" (blur)="onEmailBlur()" />
+      </div>
+      <small class="error" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+        Enter a valid email address.
+      </small>
+    </div>
+
+    <div class="form-group password-group">
+      <label for="password">Password</label>
+      <div class="input-wrapper">
+        <span class="input-icon left" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </span>
+        <input
+          id="password"
+          [type]="passwordVisible ? 'text' : 'password'"
+          formControlName="password"
+          placeholder="Create password"
+          (focus)="onPasswordFocus()"
+          (blur)="onPasswordBlur('password')"
+        />
+        <button type="button" class="icon-btn" (click)="togglePasswordVisibility()" aria-label="Toggle password visibility">
+          {{ passwordVisible ? 'Hide' : 'Show' }}
+        </button>
+      </div>
+
+      <div class="password-checklist" *ngIf="showPasswordChecklist">
+        <div [class.ok]="hasMinLength">Minimum 12 characters</div>
+        <div [class.ok]="hasUppercase">Uppercase letters</div>
+        <div [class.ok]="hasLowercase">Lowercase letters</div>
+        <div [class.ok]="hasSpecialCharacter">Special characters</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="confirmPassword">Confirm Password</label>
+      <div class="input-wrapper">
+        <span class="input-icon left" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+        </span>
+        <input
+          id="confirmPassword"
+          [type]="confirmPasswordVisible ? 'text' : 'password'"
+          formControlName="confirmPassword"
+          placeholder="Confirm password"
+          (blur)="onPasswordBlur('confirmPassword')"
+        />
+        <button type="button" class="icon-btn" (click)="toggleConfirmPasswordVisibility()" aria-label="Toggle confirm password visibility">
+          {{ confirmPasswordVisible ? 'Hide' : 'Show' }}
+        </button>
+      </div>
+      <small class="error" *ngIf="passwordMismatch">
+        Passwords do not match.
+      </small>
+    </div>
+
+    <button class="submit-btn" type="button" (click)="submit()" [disabled]="loading">
+      <ng-container *ngIf="!loading; else loadingTpl">Create Account</ng-container>
+      <ng-template #loadingTpl>
+        <app-spinner></app-spinner>
+      </ng-template>
+    </button>
+
+    <p class="switch-auth">
+      Already have an account?
+      <a routerLink="/login">Login</a>
+    </p>
+  </div>
+</div>

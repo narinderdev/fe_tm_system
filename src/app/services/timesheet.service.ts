@@ -5,8 +5,6 @@ import { environment } from '../../environments/environment';
 
 export interface TimesheetRowPayload {
   date: string;
-  technician_id: number;
-  work_order_id: number;
   day_of_week: string;
   pay_code: string;
   hours: number;
@@ -22,7 +20,32 @@ export interface TimesheetSubmitPayload {
   period_start_date: string;
   period_end_date: string;
   view_type: string;
+  technician_id: number;
   timesheet_rows: TimesheetRowPayload[];
+}
+
+export interface TimesheetRowResponse {
+  id: number;
+  date: string;
+  technician_id: number;
+  work_order_id: number;
+  day_of_week: string;
+  pay_code: string;
+  hours: number;
+  daily_total: number;
+  accounting_unit: string;
+  ferc: string;
+  activity: string;
+  comment: string;
+  is_deleted: boolean;
+}
+
+export interface TimesheetResponse {
+  id: number;
+  period_start_date: string;
+  period_end_date: string;
+  view_type: string;
+  timesheet_rows: TimesheetRowResponse[];
 }
 
 @Injectable({
@@ -38,5 +61,19 @@ export class TimesheetService {
       'ngrok-skip-browser-warning': 'true'
     });
     return this.http.post(this.apiUrl, payload, { headers });
+  }
+
+  fetchTimesheetById(id: number): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/${id}`, { headers });
+  }
+
+  fetchTimesheets(): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(this.apiUrl, { headers });
   }
 }

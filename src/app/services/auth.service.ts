@@ -9,6 +9,13 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface SignupPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
 export interface LoginResponse {
   statusCode?: number;
   status?: string;
@@ -28,6 +35,11 @@ export interface ApiResponse<T = unknown> {
 }
 
 export interface VerifyAccountPayload {
+  email: string;
+  otp: string;
+}
+
+export interface VerifySignupPayload {
   email: string;
   otp: string;
 }
@@ -121,6 +133,20 @@ export class AuthService {
       ...(this.getAuthHeader() ? { Authorization: this.getAuthHeader() } : {})
     });
     return this.http.post<ApiResponse>(`${this.apiUrl}/mfa/email/send`, {}, { headers });
+  }
+
+  signup(payload: SignupPayload): Observable<ApiResponse<{ id?: number }>> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.post<ApiResponse<{ id?: number }>>(`${this.apiUrl}/signup`, payload, { headers });
+  }
+
+  verifySignup(payload: VerifySignupPayload): Observable<ApiResponse> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.post<ApiResponse>(`${this.apiUrl}/signup/verify`, payload, { headers });
   }
 
   sendEmailMfaCodeForEmail(payload: SendEmailMfaCodePayload): Observable<ApiResponse> {

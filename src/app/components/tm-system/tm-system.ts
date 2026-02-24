@@ -55,6 +55,16 @@ interface TimeSheetRow {
 }
 
 type TimeSheetViewMode = 'WEEK' | 'BY_WEEK';
+type TimeSheetScreenMode = 'list' | 'create';
+
+interface TimesheetListItem {
+  id: number;
+  periodStartDate: string;
+  periodEndDate: string;
+  viewType: string;
+  rowCount: number;
+  totalHours: number;
+}
 
 @Component({
   selector: 'app-tm-system',
@@ -184,6 +194,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   deletingLeaveTechId?: string | number;
   leaveDeleting = false;
   timeSheetReady = false;
+  timeSheetScreenMode: TimeSheetScreenMode = 'list';
+  timeSheetListLoading = false;
+  timeSheetListError?: string;
+  timeSheetList: TimesheetListItem[] = [];
   timeSheetView: TimeSheetViewMode = 'BY_WEEK';
   payPeriodStart = '';
   payPeriodEnd = '';
@@ -279,11 +293,74 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private initializeTimeSheet(): void {
-    if (this.timeSheetReady) {
+    this.timeSheetScreenMode = 'list';
+    this.loadTimesheetList();
+
+    if (!this.timeSheetReady) {
+      this.setPayPeriod(0);
+      this.timeSheetReady = true;
+    }
+  }
+
+  openTimeSheetCreate(): void {
+    if (!this.timeSheetReady) {
+      this.setPayPeriod(0);
+      this.timeSheetReady = true;
+    }
+    this.timeSheetScreenMode = 'create';
+  }
+
+  openTimeSheetList(): void {
+    this.timeSheetScreenMode = 'list';
+    this.loadTimesheetList();
+  }
+
+  loadTimesheetList(): void {
+    if (this.timeSheetListLoading) {
       return;
     }
-    this.setPayPeriod(0);
-    this.timeSheetReady = true;
+
+    this.timeSheetListLoading = true;
+    this.timeSheetListError = undefined;
+    this.timesheetService
+      .fetchTimesheets()
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timeSheetListLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            const data = response?.data ?? response;
+            const list = this.normalizeTimesheetList(data);
+
+            if (!list.length) {
+              this.timeSheetList = [];
+              return;
+            }
+            this.timeSheetList = list;
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.timeSheetList = [];
+            this.timeSheetListError = 'Failed to load timesheet list.';
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  openTimesheetDetail(id: number): void {
+    if (!id) {
+      return;
+    }
+    this.router.navigate(['/tm-system', 'time-sheet', id]);
   }
 
   private setPayPeriod(offsetPeriods: number): void {
@@ -387,10 +464,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       period_start_date: this.payPeriodStart,
       period_end_date: this.payPeriodEnd,
       view_type: this.toApiViewType(this.timeSheetView),
+      technician_id: this.getCurrentTechnicianId(),
       timesheet_rows: this.timeSheetRows.map((row) => ({
         date: row.date,
-        technician_id: row.technicianId || this.getCurrentTechnicianId(),
-        work_order_id: row.workOrderId || 0,
         day_of_week: this.dayOfWeekLabel(row.date),
         pay_code: row.payCode,
         hours: Number(row.hours) || 0,
@@ -419,6 +495,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: () => {
           this.zone.run(() => {
             this.toastr.success('Timesheet sent for approval.');
+            this.openTimeSheetList();
             this.cdr.detectChanges();
           });
         },
@@ -484,7 +561,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private getCurrentTechnicianId(): number {
     const raw = localStorage.getItem('technicianId');
     const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
   }
 
   private toApiViewType(view: TimeSheetViewMode): string {
@@ -496,6 +573,38 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const month = `${d.getMonth() + 1}`.padStart(2, '0');
     const day = `${d.getDate()}`.padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private normalizeTimesheetList(data: any): TimesheetListItem[] {
+    if (!data) {
+      return [];
+    }
+
+    const source = Array.isArray(data)
+      ? data
+      : (Array.isArray(data?.timesheets)
+        ? data.timesheets
+        : (Array.isArray(data?.content)
+          ? data.content
+          : (typeof data === 'object' && data.id !== undefined && data.id !== null ? [data] : [])));
+
+    return source
+      .map((item: any) => {
+        const rows = Array.isArray(item?.timesheet_rows)
+          ? item.timesheet_rows
+          : (Array.isArray(item?.timesheetRows) ? item.timesheetRows : []);
+        const totalHours = rows.reduce((sum: number, row: any) => sum + (Number(row?.hours) || 0), 0);
+
+        return {
+          id: Number(item?.id) || 0,
+          periodStartDate: item?.period_start_date ?? item?.periodStartDate ?? '-',
+          periodEndDate: item?.period_end_date ?? item?.periodEndDate ?? '-',
+          viewType: item?.view_type ?? item?.viewType ?? '-',
+          rowCount: rows.length,
+          totalHours: Number(totalHours.toFixed(2))
+        };
+      })
+      .filter((item: TimesheetListItem) => item.id > 0);
   }
 
   private loadLeaves(): void {

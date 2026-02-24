@@ -1,13 +1,23 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
 import { LoginComponent } from './components/login/login';
+import { SignUpComponent } from './components/sign-up/sign-up';
+import { VerifyOtpComponent } from './components/verify-otp/verify-otp';
 import { TmSystemComponent } from './components/tm-system/tm-system';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: 'login', component: LoginComponent },
+  { path: 'sign-up', component: SignUpComponent },
+  { path: 'verify-otp', component: VerifyOtpComponent },
   { path: 'dashboard', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
   { path: 'tm-system', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
+  {
+    path: 'tm-system/time-sheet/:id',
+    loadComponent: () =>
+      import('./components/timesheet-view/timesheet-view').then((m) => m.TimesheetViewComponent),
+    canActivate: [AuthGuard]
+  },
   {
     path: 'tm-system/work-orders/:id',
     loadComponent: () =>

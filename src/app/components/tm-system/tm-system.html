@@ -507,117 +507,169 @@
         </ng-container>
 
         <ng-container *ngSwitchCase="'time-sheet'">
-          <section class="timesheet-card">
-            <div class="timesheet-toolbar">
-              <div class="timesheet-period">
-                <label>View:</label>
-                <select [(ngModel)]="timeSheetView" (ngModelChange)="onTimeSheetViewChange()">
-                  <option value="WEEK">Week</option>
-                  <option value="BY_WEEK">By Week</option>
-                </select>
-                <button type="button" class="period-nav" (click)="previousPayPeriod()">&lt;</button>
-                <span class="period-range">{{ formatDisplayDate(payPeriodStart) }} to {{ formatDisplayDate(payPeriodEnd) }}</span>
-                <button type="button" class="period-nav" (click)="nextPayPeriod()">&gt;</button>
-              </div>
-              <div class="timesheet-actions">
-                <button type="button" class="ts-btn ts-btn-primary" (click)="addTimeSheetRow()">+ Add Row</button>
-                <button type="button" class="ts-btn ts-btn-ghost" (click)="deleteMarkedRows()">Delete Marked</button>
-              </div>
+          <section class="timesheet-card" *ngIf="timeSheetScreenMode === 'list'; else timeSheetCreateTemplate">
+            <div class="timesheet-list-header">
+              <h3>Time Sheet Listing</h3>
+              <button type="button" class="ts-btn ts-btn-primary" (click)="openTimeSheetCreate()">Create Timesheet</button>
             </div>
 
             <div class="table-wrapper timesheet-table-wrap">
-              <table class="timesheet-table">
+              <table class="timesheet-table timesheet-list-table">
                 <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Pay Code</th>
-                    <th>Hours</th>
-                    <th>Accounting Unit</th>
-                    <th>FERC</th>
-                    <th>Activity</th>
-                    <th>Comment</th>
-                    <th>Delete</th>
+                    <th>ID</th>
+                    <th>Period Start</th>
+                    <th>Period End</th>
+                    <th>View Type</th>
+                    <th>Rows</th>
+                    <th>Total Hours</th>
+                    <th class="actions-col">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of timeSheetRows">
-                    <td>
-                      <input type="date" [(ngModel)]="row.date" />
+                  <tr *ngIf="timeSheetListLoading">
+                    <td colspan="7">Loading timesheet...</td>
+                  </tr>
+                  <tr *ngIf="!timeSheetListLoading && timeSheetListError">
+                    <td colspan="7">{{ timeSheetListError }}</td>
+                  </tr>
+                  <tr *ngFor="let item of timeSheetList">
+                    <td class="linkish">#{{ item.id }}</td>
+                    <td>{{ item.periodStartDate }}</td>
+                    <td>{{ item.periodEndDate }}</td>
+                    <td>{{ item.viewType }}</td>
+                    <td>{{ item.rowCount }}</td>
+                    <td>{{ item.totalHours | number:'1.2-2' }}</td>
+                    <td class="actions">
+                      <button class="icon-btn ghost" aria-label="View timesheet" (click)="openTimesheetDetail(item.id)">
+                        <img src="/assets/icons/Vector.svg" alt="View" />
+                      </button>
                     </td>
-                    <td>
-                      <select [(ngModel)]="row.payCode">
-                        <option *ngFor="let code of timeSheetPayCodes" [value]="code.value">{{ code.label }}</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
-                    </td>
-                    <td>
-                      <select [(ngModel)]="row.accountingUnit">
-                        <option value="Operations">Operations</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Field">Field</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select [(ngModel)]="row.ferc">
-                        <option value="None">None</option>
-                        <option value="Plant">Plant</option>
-                        <option value="Admin">Admin</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input type="text" [(ngModel)]="row.activity" placeholder="Activity" />
-                    </td>
-                    <td>
-                      <input type="text" [(ngModel)]="row.comment" placeholder="Comment" />
-                    </td>
-                    <td class="delete-cell">
-                      <input type="checkbox" [(ngModel)]="row.markedForDelete" />
-                    </td>
+                  </tr>
+                  <tr *ngIf="!timeSheetListLoading && !timeSheetListError && !timeSheetList.length">
+                    <td colspan="7">No timesheet records found.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+          </section>
 
-            <div class="timesheet-total-line">
-              <span>Total:</span>
-              <strong>{{ grandTotalHours | number:'1.2-2' }}</strong>
-            </div>
+          <ng-template #timeSheetCreateTemplate>
+            <section class="timesheet-card">
+              <div class="timesheet-create-header">
+                <button type="button" class="ts-btn ts-btn-ghost" (click)="openTimeSheetList()">&larr; Back to Listing</button>
+              </div>
+              <div class="timesheet-toolbar">
+                <div class="timesheet-period">
+                  <label>View:</label>
+                  <select [(ngModel)]="timeSheetView" (ngModelChange)="onTimeSheetViewChange()">
+                    <option value="WEEK">Week</option>
+                    <option value="BY_WEEK">By Week</option>
+                  </select>
+                  <button type="button" class="period-nav" (click)="previousPayPeriod()">&lt;</button>
+                  <span class="period-range">{{ formatDisplayDate(payPeriodStart) }} to {{ formatDisplayDate(payPeriodEnd) }}</span>
+                  <button type="button" class="period-nav" (click)="nextPayPeriod()">&gt;</button>
+                </div>
+                <div class="timesheet-actions">
+                  <button type="button" class="ts-btn ts-btn-primary" (click)="addTimeSheetRow()">+ Add Row</button>
+                  <button type="button" class="ts-btn ts-btn-ghost" (click)="deleteMarkedRows()">Delete Marked</button>
+                </div>
+              </div>
 
-            <div class="timesheet-summary">
-              <h3>Timecard Summary</h3>
-              <div class="summary-grid">
-                <div class="summary-col">
-                  <h4>Worked</h4>
-                  <div class="summary-row">
-                    <span>Regular Earnings</span>
-                    <strong>{{ workedTotal | number:'1.2-2' }}</strong>
+              <div class="table-wrapper timesheet-table-wrap">
+                <table class="timesheet-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Pay Code</th>
+                      <th>Hours</th>
+                      <th>Accounting Unit</th>
+                      <th>FERC</th>
+                      <th>Activity</th>
+                      <th>Comment</th>
+                      <th>Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of timeSheetRows">
+                      <td>
+                        <input type="date" [(ngModel)]="row.date" />
+                      </td>
+                      <td>
+                        <select [(ngModel)]="row.payCode">
+                          <option *ngFor="let code of timeSheetPayCodes" [value]="code.value">{{ code.label }}</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
+                      </td>
+                      <td>
+                        <select [(ngModel)]="row.accountingUnit">
+                          <option value="Operations">Operations</option>
+                          <option value="Maintenance">Maintenance</option>
+                          <option value="Field">Field</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select [(ngModel)]="row.ferc">
+                          <option value="None">None</option>
+                          <option value="Plant">Plant</option>
+                          <option value="Admin">Admin</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="text" [(ngModel)]="row.activity" placeholder="Activity" />
+                      </td>
+                      <td>
+                        <input type="text" [(ngModel)]="row.comment" placeholder="Comment" />
+                      </td>
+                      <td class="delete-cell">
+                        <input type="checkbox" [(ngModel)]="row.markedForDelete" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="timesheet-total-line">
+                <span>Total:</span>
+                <strong>{{ grandTotalHours | number:'1.2-2' }}</strong>
+              </div>
+
+              <div class="timesheet-summary">
+                <h3>Timecard Summary</h3>
+                <div class="summary-grid">
+                  <div class="summary-col">
+                    <h4>Worked</h4>
+                    <div class="summary-row">
+                      <span>Regular Earnings</span>
+                      <strong>{{ workedTotal | number:'1.2-2' }}</strong>
+                    </div>
                   </div>
-                </div>
-                <div class="summary-col">
-                  <h4>Non-Worked</h4>
-                  <div class="summary-row">
-                    <span>PTO / Sick</span>
-                    <strong>{{ nonWorkedTotal | number:'1.2-2' }}</strong>
+                  <div class="summary-col">
+                    <h4>Non-Worked</h4>
+                    <div class="summary-row">
+                      <span>PTO / Sick</span>
+                      <strong>{{ nonWorkedTotal | number:'1.2-2' }}</strong>
+                    </div>
                   </div>
-                </div>
-                <div class="summary-col">
-                  <h4>Premium</h4>
-                  <div class="summary-row">
-                    <span>Holiday / Overtime</span>
-                    <strong>{{ premiumTotal | number:'1.2-2' }}</strong>
+                  <div class="summary-col">
+                    <h4>Premium</h4>
+                    <div class="summary-row">
+                      <span>Holiday / Overtime</span>
+                      <strong>{{ premiumTotal | number:'1.2-2' }}</strong>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div class="timesheet-submit-wrap">
-              <button type="button" class="ts-btn ts-btn-primary" (click)="sendForApproval()" [disabled]="timesheetSubmitting">
-                {{ timesheetSubmitting ? 'Sending...' : 'Send for Approval' }}
-              </button>
-            </div>
-          </section>
+              <div class="timesheet-submit-wrap">
+                <button type="button" class="ts-btn ts-btn-primary" (click)="sendForApproval()" [disabled]="timesheetSubmitting">
+                  {{ timesheetSubmitting ? 'Sending...' : 'Send for Approval' }}
+                </button>
+              </div>
+            </section>
+          </ng-template>
         </ng-container>
 
         <section class="placeholder" *ngSwitchDefault>

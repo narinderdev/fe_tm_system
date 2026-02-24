@@ -1,0 +1,33 @@
+<div class="otp-page">
+  <div class="otp-card">
+    <h2>Verify OTP</h2>
+    <p>Enter the 6-digit code sent to <strong>{{ email }}</strong></p>
+
+    <div class="otp-inputs" (paste)="onPaste($event)">
+      <input
+        #otpInput
+        *ngFor="let digit of otpDigits; let i = index"
+        type="text"
+        inputmode="numeric"
+        maxlength="1"
+        [value]="digit"
+        (input)="onInput(i, $event)"
+        (keydown)="onKeyDown(i, $event)"
+      />
+    </div>
+
+    <button class="verify-btn" type="button" (click)="verifyOtp()" [disabled]="loading">
+      <ng-container *ngIf="!loading; else loadingTpl">Verify OTP</ng-container>
+      <ng-template #loadingTpl>
+        <app-spinner></app-spinner>
+      </ng-template>
+    </button>
+
+    <p class="switch-auth">
+      Back to
+      <a routerLink="/sign-up">Sign up</a>
+      or
+      <a routerLink="/login">Login</a>
+    </p>
+  </div>
+</div>
