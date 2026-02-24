@@ -21,6 +21,9 @@ export interface TimesheetSubmitPayload {
   period_end_date: string;
   view_type: string;
   technician_id: number;
+  totalWorked: number;
+  totalNonWorked: number;
+  totalPremium: number;
   timesheet_rows: TimesheetRowPayload[];
 }
 

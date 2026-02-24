@@ -46,7 +46,7 @@ interface TimeSheetRow {
   technicianId: number;
   workOrderId: number;
   payCode: string;
-  hours: number;
+  hours: number | null;
   accountingUnit: string;
   ferc: string;
   activity: string;
@@ -401,7 +401,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       technicianId: this.getCurrentTechnicianId(),
       workOrderId: 0,
       payCode: 'REGULAR',
-      hours: 0,
+      hours: null,
       accountingUnit: 'Operations',
       ferc: 'None',
       activity: '',
@@ -451,8 +451,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   onHoursInput(row: TimeSheetRow, value: string): void {
-    const parsed = Number(value);
-    row.hours = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : 0;
+    const raw = String(value ?? '').trim();
+    if (!raw.length) {
+      row.hours = null;
+      return;
+    }
+    const parsed = Number(raw);
+    row.hours = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
   }
 
   sendForApproval(): void {
@@ -465,6 +470,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       period_end_date: this.payPeriodEnd,
       view_type: this.toApiViewType(this.timeSheetView),
       technician_id: this.getCurrentTechnicianId(),
+      totalWorked: Number(this.workedTotal) || 0,
+      totalNonWorked: Number(this.nonWorkedTotal) || 0,
+      totalPremium: Number(this.premiumTotal) || 0,
       timesheet_rows: this.timeSheetRows.map((row) => ({
         date: row.date,
         day_of_week: this.dayOfWeekLabel(row.date),
@@ -482,18 +490,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.timesheetSubmitting = true;
     this.timesheetService
       .submitTimesheet(payload)
-      .pipe(
-        take(1),
-        finalize(() => {
-          this.zone.run(() => {
-            this.timesheetSubmitting = false;
-            this.cdr.detectChanges();
-          });
-        })
-      )
+      .pipe(take(1))
       .subscribe({
         next: () => {
           this.zone.run(() => {
+            this.timesheetSubmitting = false;
             this.toastr.success('Timesheet sent for approval.');
             this.openTimeSheetList();
             this.cdr.detectChanges();
@@ -501,6 +502,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.zone.run(() => {
+            this.timesheetSubmitting = false;
             this.toastr.error('Failed to send timesheet for approval.');
             this.cdr.detectChanges();
           });
@@ -538,7 +540,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         technicianId: this.getCurrentTechnicianId(),
         workOrderId: 0,
         payCode: 'REGULAR',
-        hours: 0,
+        hours: null,
         accountingUnit: 'Operations',
         ferc: 'None',
         activity: '',
@@ -566,6 +568,17 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   private toApiViewType(view: TimeSheetViewMode): string {
     return view === 'WEEK' ? 'WEEK' : 'BY_WEEK';
+  }
+
+  formatTimesheetViewType(value: string): string {
+    const normalized = String(value || '').trim().toUpperCase();
+    if (normalized === 'WEEK') {
+      return 'Weekly';
+    }
+    if (normalized === 'BY_WEEK') {
+      return 'Bi-Weekly';
+    }
+    return value || '-';
   }
 
   private toIsoDate(d: Date): string {

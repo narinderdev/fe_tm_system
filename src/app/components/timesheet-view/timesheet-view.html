@@ -1,11 +1,24 @@
 <div class="timesheet-view-page">
   <section class="timesheet-view-card">
     <div class="timesheet-view-head">
-      <div>
+      <div class="title-wrap">
+        <button
+          type="button"
+          class="title-back-btn"
+          aria-label="Back to listing"
+          (click)="backToList()"
+        >
+          <span aria-hidden="true">&#8592;</span>
+        </button>
         <h1>Timesheet #{{ timesheetId }}</h1>
-        <p>Period: {{ periodStartDate }} to {{ periodEndDate }} | View: {{ viewType }} | Technician: {{ technicianId }}</p>
+        <div class="meta-row">
+          <span class="meta-pill">Period: {{ periodStartDate }} to {{ periodEndDate }}</span>
+          <span class="meta-pill">View: {{ formatViewType(viewType) }}</span>
+        </div>
       </div>
-      <button type="button" class="back-btn" (click)="backToList()">Back to Listing</button>
+      <div class="head-actions">
+        <button type="button" class="export-btn" (click)="exportAs('excel')">Export as excel</button>
+      </div>
     </div>
 
     <div class="timesheet-view-state" *ngIf="loading">Loading timesheet...</div>
@@ -29,8 +42,8 @@
         <tbody>
           <tr *ngFor="let row of rows">
             <td>{{ row.date }}</td>
-            <td>{{ row.dayOfWeek }}</td>
-            <td>{{ row.payCode }}</td>
+            <td>{{ formatLabel(row.dayOfWeek) }}</td>
+            <td><span class="pay-code-pill">{{ formatLabel(row.payCode) }}</span></td>
             <td>{{ row.hours | number:'1.2-2' }}</td>
             <td>{{ row.dailyTotal | number:'1.2-2' }}</td>
             <td>{{ row.accountingUnit }}</td>
@@ -45,8 +58,23 @@
       </table>
     </div>
 
-    <div class="timesheet-view-total" *ngIf="!loading && !error">
-      Total Hours: <strong>{{ totalHours | number:'1.2-2' }}</strong>
+    <div class="timesheet-breakdown" *ngIf="!loading && !error">
+      <div class="breakdown-card">
+        <span>Total Hours</span>
+        <strong>{{ totalHours | number:'1.2-2' }}</strong>
+      </div>
+      <div class="breakdown-card">
+        <span>Worked</span>
+        <strong>{{ totalWorked | number:'1.2-2' }}</strong>
+      </div>
+      <div class="breakdown-card">
+        <span>Non-worked</span>
+        <strong>{{ totalNonWorked | number:'1.2-2' }}</strong>
+      </div>
+      <div class="breakdown-card">
+        <span>Premium</span>
+        <strong>{{ totalPremium | number:'1.2-2' }}</strong>
+      </div>
     </div>
   </section>
 </div>

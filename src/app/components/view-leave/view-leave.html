@@ -2,7 +2,7 @@
   <app-loader [visible]="loading"></app-loader>
 
   <div class="vh-header">
-    <button class="back-link" type="button" (click)="goBack()"><- Back to Leaves</button>
+    <button class="back-link" type="button" (click)="goBack()"><span class="back-icon" aria-hidden="true">&#8592;</span><span>Back to Leaves</span></button>
     <div class="id-chip" *ngIf="leaveId">
       LEAVE {{ leaveId }}
     </div>

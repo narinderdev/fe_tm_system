@@ -136,15 +136,12 @@ export class SignUpComponent {
         next: (response: any) => {
           const statusCode = response?.statusCode;
           if (statusCode === 201 || statusCode === 202) {
-            const userId = response?.data?.id;
             if (this.isBrowser) {
-              if (userId !== undefined && userId !== null) {
-                localStorage.setItem('signupUserId', String(userId));
-              }
-              localStorage.setItem('signupEmail', payload.email);
+              localStorage.removeItem('signupUserId');
+              localStorage.removeItem('signupEmail');
             }
-            this.toastr.success(response?.message || 'Signup successful. Verify OTP to continue.');
-            this.router.navigate(['/verify-otp'], { queryParams: { email: payload.email } });
+            this.toastr.success(response?.message || 'Signup successful.');
+            this.router.navigate(['/login']);
             return;
           }
 

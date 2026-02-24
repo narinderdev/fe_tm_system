@@ -1,0 +1,10 @@
+services:
+  tm-system-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tm-system-web
+    container_name: tm-system-web
+    ports:
+      - "4400:80"
+    restart: unless-stopped

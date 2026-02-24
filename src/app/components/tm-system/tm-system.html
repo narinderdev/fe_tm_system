@@ -267,25 +267,6 @@
               <button type="button" [class.active]="leavesView === 'holidays'" (click)="setLeavesView('holidays')">Holidays</button>
             </div>
 
-            <div class="lh-actions">
-              <button
-                class="btn-add"
-                type="button"
-                *ngIf="leavesView === 'leaves'"
-                (click)="openLeaveModal()"
-              >
-                + Add PTO
-              </button>
-              <button
-                class="btn-add"
-                type="button"
-                *ngIf="leavesView === 'holidays'"
-                (click)="openHolidayModal()"
-              >
-                + Add Holiday
-              </button>
-            </div>
-
             <div class="table-wrapper">
               <table *ngIf="leavesView === 'leaves'">
                 <thead>
@@ -316,12 +297,6 @@
                       >
                         <img src="/assets/icons/Vector.svg" alt="View" />
                       </a>
-                      <button class="icon-btn ghost" aria-label="Edit" (click)="editLeave(row)">
-                        <img src="/assets/icons/edit.svg" alt="Edit" />
-                      </button>
-                      <button class="icon-btn ghost danger" aria-label="Delete" (click)="openLeaveDelete(row)">
-                        <img src="/assets/icons/delete.svg" alt="Delete" />
-                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -356,12 +331,6 @@
                     <td class="actions">
                       <button class="icon-btn ghost" aria-label="View" (click)="openHolidayDetail(row.id)">
                         <img src="/assets/icons/Vector.svg" alt="View" />
-                      </button>
-                      <button class="icon-btn ghost" aria-label="Edit" (click)="editHoliday(row.id)">
-                        <img src="/assets/icons/edit.svg" alt="Edit" />
-                      </button>
-                      <button class="icon-btn ghost danger" aria-label="Delete" (click)="openHolidayDelete(row.id)">
-                        <img src="/assets/icons/delete.svg" alt="Delete" />
                       </button>
                     </td>
                   </tr>
@@ -509,8 +478,8 @@
         <ng-container *ngSwitchCase="'time-sheet'">
           <section class="timesheet-card" *ngIf="timeSheetScreenMode === 'list'; else timeSheetCreateTemplate">
             <div class="timesheet-list-header">
-              <h3>Time Sheet Listing</h3>
-              <button type="button" class="ts-btn ts-btn-primary" (click)="openTimeSheetCreate()">Create Timesheet</button>
+              <h3></h3>
+              <button type="button" class="ts-btn ts-btn-primary" (click)="openTimeSheetCreate()">Create timesheet</button>
             </div>
 
             <div class="table-wrapper timesheet-table-wrap">
@@ -537,7 +506,7 @@
                     <td class="linkish">#{{ item.id }}</td>
                     <td>{{ item.periodStartDate }}</td>
                     <td>{{ item.periodEndDate }}</td>
-                    <td>{{ item.viewType }}</td>
+                    <td>{{ formatTimesheetViewType(item.viewType) }}</td>
                     <td>{{ item.rowCount }}</td>
                     <td>{{ item.totalHours | number:'1.2-2' }}</td>
                     <td class="actions">
@@ -563,16 +532,14 @@
                 <div class="timesheet-period">
                   <label>View:</label>
                   <select [(ngModel)]="timeSheetView" (ngModelChange)="onTimeSheetViewChange()">
-                    <option value="WEEK">Week</option>
-                    <option value="BY_WEEK">By Week</option>
+                    <option value="WEEK">Weekly</option>
+                    <option value="BY_WEEK">By Weekly</option>
                   </select>
                   <button type="button" class="period-nav" (click)="previousPayPeriod()">&lt;</button>
                   <span class="period-range">{{ formatDisplayDate(payPeriodStart) }} to {{ formatDisplayDate(payPeriodEnd) }}</span>
                   <button type="button" class="period-nav" (click)="nextPayPeriod()">&gt;</button>
                 </div>
                 <div class="timesheet-actions">
-                  <button type="button" class="ts-btn ts-btn-primary" (click)="addTimeSheetRow()">+ Add Row</button>
-                  <button type="button" class="ts-btn ts-btn-ghost" (click)="deleteMarkedRows()">Delete Marked</button>
                 </div>
               </div>
 
@@ -587,7 +554,6 @@
                       <th>FERC</th>
                       <th>Activity</th>
                       <th>Comment</th>
-                      <th>Delete</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -622,9 +588,6 @@
                       </td>
                       <td>
                         <input type="text" [(ngModel)]="row.comment" placeholder="Comment" />
-                      </td>
-                      <td class="delete-cell">
-                        <input type="checkbox" [(ngModel)]="row.markedForDelete" />
                       </td>
                     </tr>
                   </tbody>
@@ -682,4 +645,3 @@
     </main>
   </div>
 </div>
-
