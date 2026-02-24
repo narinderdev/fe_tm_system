@@ -1,0 +1,18 @@
+<div class="modal-overlay" *ngIf="isOpen">
+  <div class="modal">
+    <h3>{{ title }}</h3>
+    <p>{{ message }}</p>
+
+    <div class="modal-actions">
+      <button class="cancelBtn" type="button" (click)="onCancel()">Close</button>
+
+      <button class="deleteBtn" type="button" (click)="onConfirm()" [disabled]="deleting" [ngClass]="{ 'convert-btn': confirmLabel === 'Convert' }">
+        <ng-container *ngIf="!deleting">{{ confirmLabel }}</ng-container>
+        <ng-container *ngIf="deleting">
+          <span class="spinner"></span>
+        </ng-container>
+      </button>
+    </div>
+  </div>
+</div>
+

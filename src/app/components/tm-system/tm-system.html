@@ -1,0 +1,633 @@
+<div class="tm-page">
+  <!-- <header class="tm-header">
+    <div class="tm-breadcrumb">Dashboard</div>
+    <div class="tm-header-actions">
+      <button type="button" class="icon-btn" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M6 9a6 6 0 1 1 12 0v4l1.5 2.5H4.5L6 13V9Z" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M10 18a2 2 0 0 0 4 0" stroke-linecap="round" />
+        </svg>
+      </button>
+      <div class="user-chip">
+        <img src="/assets/icons/profile.svg" alt="User avatar">
+      </div>
+      <button type="button" class="icon-btn" aria-label="Call">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M22 16.92v2a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 3.2 2 2 0 0 1 4.11 1h2a2 2 0 0 1 2 1.72c.12.9.33 1.78.62 2.62a2 2 0 0 1-.45 2.11L7.2 8.8a16 16 0 0 0 8 8l1.35-1.08a2 2 0 0 1 2.11-.45c.84.29 1.72.5 2.62.62A2 2 0 0 1 22 16.92Z" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+  </header> -->
+
+  <div class="tm-layout">
+    <aside class="tm-sidebar-card">
+      <div class="sidebar-top">
+        <button class="mobile-menu-toggle" type="button" (click)="toggleMobileMenu()">
+          <span class="hamburger"></span>
+          <span class="menu-label">Menu</span>
+          <span class="menu-title">Technician Panel</span>
+        </button>
+        <div class="tm-brand">
+          <h2>Technician Panel</h2>
+          <span>Management System</span>
+        </div>
+      </div>
+
+      <nav [class.mobile-hidden]="!mobileMenuOpen">
+        <ul>
+          <li
+            *ngFor="let item of navItems"
+            [class.active]="activeTab === item.id"
+            (click)="selectTab(item.id)"
+            [routerLink]="['/tm-system', item.id]"
+            routerLinkActive="active"
+            tabindex="0"
+            role="button"
+            (keydown.enter)="selectTab(item.id)"
+          >
+            <img class="nav-icon-img" [src]="iconPath + item.icon" [alt]="item.label" />
+            <span>{{ item.label }}</span>
+          </li>
+
+          <li class="exit-nav" (click)="signOut()" tabindex="0" role="button" (keydown.enter)="signOut()">
+            <span class="nav-text-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M9 12h11m0 0-3-3m3 3-3 3" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span>Sign Out</span>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="tm-main">
+      <app-loader [visible]="isLoading"></app-loader>
+      <div class="tm-main-header">
+        <h1>{{ activeLabel }}</h1>
+      </div>
+
+      <ng-container [ngSwitch]="activeTab">
+        <ng-container *ngSwitchCase="'dashboard'">
+          <section class="metrics-grid">
+            <div class="metric-card" *ngFor="let metric of metrics" [ngClass]="['metric-card', metric.accent]">
+              <div class="metric-value">{{ metric.value }}</div>
+              <div class="metric-label">{{ metric.label }}</div>
+            </div>
+          </section>
+
+          <section class="activities-card">
+            <div class="card-head">
+              <h3>Recent Activities</h3>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Technician</th>
+                    <th>Activity</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of activities">
+                    <td>{{ item.technician }}</td>
+                    <td>{{ item.activity }}</td>
+                    <td>{{ item.time }}</td>
+                    <td>
+                      <span class="status-pill" [ngClass]="'status-' + item.status.toLowerCase()">{{ item.status }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'technicians'">
+          <section class="card table-card">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Technician ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Team</th>
+                    <th>Status</th>
+                    <th>Shift</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of technicianRows">
+                    <td class="linkish">{{ row.id }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.phone }}</td>
+                    <td>{{ row.email }}</td>
+                    <td>{{ row.team }}</td>
+                    <td>
+                      <span class="pill"
+                        [ngClass]="{
+                          'pill-green': row.status === 'Available',
+                          'pill-amber': row.status === 'Working',
+                          'pill-red': row.status === 'On leave'
+                        }">
+                        {{ row.status }}
+                      </span>
+                    </td>
+                    <td>{{ row.workingDays }}</td>
+                    <td class="actions">
+                      <button class="icon-btn ghost" aria-label="View availability" (click)="openTechnicianAvailability(row.dbId)">
+                        <img src="/assets/icons/Vector.svg" alt="View availability" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer pagination">
+              <span>Page {{ techPage + 1 }} of {{ techTotalPages() }}</span>
+              <div class="pager">
+                <button type="button" (click)="changeTechPage(-1)" [disabled]="techPage === 0">Previous</button>
+                <button type="button" (click)="changeTechPage(1)" [disabled]="techPage + 1 >= techTotalPages()">Next</button>
+              </div>
+            </div>
+          </section>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'teams'">
+          <section class="card table-card">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Team ID</th>
+                    <th>Team Name</th>
+                    <th>Availability</th>
+                    <th>Team Leader</th>
+                    <th>Total Technicians</th>
+                    <th>Active Work Orders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of teamRows">
+                    <td class="linkish">{{ row.id }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.availability }}</td>
+                    <td>{{ row.leader }}</td>
+                    <td><span class="badge badge-blue">{{ row.total }}</span></td>
+                    <td><span class="badge badge-purple">{{ row.activeWos }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer pagination">
+              <span>Page {{ teamPage + 1 }} of {{ teamTotalPages() }}</span>
+              <div class="pager">
+                <button type="button" (click)="changeTeamPage(-1)" [disabled]="teamPage === 0">Previous</button>
+                <button type="button" (click)="changeTeamPage(1)" [disabled]="teamPage + 1 >= teamTotalPages()">Next</button>
+              </div>
+            </div>
+          </section>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'work-orders'">
+          <section class="card table-card">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Work Order ID</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Assigned To</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of workOrderRows">
+                    <td class="linkish">{{ row.id }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.description }}</td>
+                    <td>{{ row.assigned }}</td>
+                    <td>
+                      <span class="pill"
+                        [ngClass]="{
+                          'pill-red': row.priority === 'High',
+                          'pill-amber': row.priority === 'Medium',
+                          'pill-green': row.priority === 'Low'
+                        }">
+                        {{ row.priority }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="pill"
+                        [ngClass]="{
+                          'pill-blue': row.status === 'In Progress',
+                          'pill-green': row.status === 'Completed' || row.status === 'Approved',
+                          'pill-amber': row.status === 'Pending' || row.status === 'On Hold',
+                          'pill-purple': row.status === 'Scheduled',
+                          'pill-gray': row.status === 'New' || row.status === 'Draft',
+                          'pill-red': row.status === 'Cancelled'
+                        }">
+                        {{ row.status }}
+                      </span>
+                    </td>
+                    <td>{{ row.dueDate }}</td>
+                    <td class="actions">
+                      <button class="icon-btn ghost" aria-label="View" (click)="openWorkOrder(row.dbId ?? row.id)">
+                        <img src="/assets/icons/Vector.svg" alt="View" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer pagination">
+              <span>Page {{ woPage + 1 }} of {{ woTotalPages() }}</span>
+              <div class="pager">
+                <button type="button" (click)="changeWoPage(-1)" [disabled]="woPage === 0">Previous</button>
+                <button type="button" (click)="changeWoPage(1)" [disabled]="woPage + 1 >= woTotalPages()">Next</button>
+              </div>
+            </div>
+          </section>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'leaves'">
+          <section class="lh-card">
+            <div class="lh-tabs">
+              <button type="button" [class.active]="leavesView === 'leaves'" (click)="setLeavesView('leaves')">PTO</button>
+              <button type="button" [class.active]="leavesView === 'holidays'" (click)="setLeavesView('holidays')">Holidays</button>
+            </div>
+
+            <div class="lh-actions">
+              <button
+                class="btn-add"
+                type="button"
+                *ngIf="leavesView === 'leaves'"
+                (click)="openLeaveModal()"
+              >
+                + Add PTO
+              </button>
+              <button
+                class="btn-add"
+                type="button"
+                *ngIf="leavesView === 'holidays'"
+                (click)="openHolidayModal()"
+              >
+                + Add Holiday
+              </button>
+            </div>
+
+            <div class="table-wrapper">
+              <table *ngIf="leavesView === 'leaves'">
+                <thead>
+                  <tr>
+                    <th>PTO ID</th>
+                    <th>Technician</th>
+                    <th>From Date</th>
+                    <th>To Date</th>
+                    <th>Reason</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of leaveRows">
+                    <td class="linkish">{{ row.id }}</td>
+                    <td>{{ row.technician }}</td>
+                    <td>{{ row.from }}</td>
+                    <td>{{ row.to }}</td>
+                    <td>{{ row.reason }}</td>
+                    <td class="actions">
+                      <a
+                        class="icon-btn ghost"
+                        aria-label="View"
+                        [routerLink]="row.technicianId ? ['/tm-system', 'leaves', row.technicianId, row.id] : null"
+                        [attr.aria-disabled]="!row.technicianId"
+                        [class.disabled]="!row.technicianId"
+                        (click)="$event.stopPropagation()"
+                      >
+                        <img src="/assets/icons/Vector.svg" alt="View" />
+                      </a>
+                      <button class="icon-btn ghost" aria-label="Edit" (click)="editLeave(row)">
+                        <img src="/assets/icons/edit.svg" alt="Edit" />
+                      </button>
+                      <button class="icon-btn ghost danger" aria-label="Delete" (click)="openLeaveDelete(row)">
+                        <img src="/assets/icons/delete.svg" alt="Delete" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <table *ngIf="leavesView === 'holidays'">
+                <thead>
+                  <tr>
+                    <th>Holiday ID</th>
+                    <th>Holiday Name</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Notes</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of holidayRows">
+                    <td class="linkish">{{ row.id }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.date }}</td>
+                    <td>
+                      <span class="pill"
+                        [ngClass]="{
+                          'pill-blue': row.type === 'National',
+                          'pill-purple': row.type === 'Company'
+                        }">
+                        {{ row.type }}
+                      </span>
+                    </td>
+                    <td>{{ row.notes }}</td>
+                    <td class="actions">
+                      <button class="icon-btn ghost" aria-label="View" (click)="openHolidayDetail(row.id)">
+                        <img src="/assets/icons/Vector.svg" alt="View" />
+                      </button>
+                      <button class="icon-btn ghost" aria-label="Edit" (click)="editHoliday(row.id)">
+                        <img src="/assets/icons/edit.svg" alt="Edit" />
+                      </button>
+                      <button class="icon-btn ghost danger" aria-label="Delete" (click)="openHolidayDelete(row.id)">
+                        <img src="/assets/icons/delete.svg" alt="Delete" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-footer pagination">
+              <span>Showing 1 to {{ leavesView === 'leaves' ? leaveRows.length : holidayRows.length }} of {{ leavesView === 'leaves' ? leaveRows.length : holidayRows.length }} results</span>
+              <div class="pager">
+                <button type="button" disabled>&lt;</button>
+                <button type="button" class="active-page" disabled>1</button>
+                <button type="button" disabled>&gt;</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Leave Modal -->
+          <div class="modal-backdrop" *ngIf="showLeaveModal" (click)="closeLeaveModal()">
+            <div class="modal-dialog small" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h3>{{ editingLeaveId ? 'Edit PTO' : 'Add PTO' }}</h3>
+              </div>
+              <form (ngSubmit)="submitLeave()" novalidate>
+                <div class="modal-body">
+                  <div class="form-group">
+                    <label class="form-label">Technician</label>
+                    <select
+                      class="form-input"
+                      [(ngModel)]="leaveForm.technicianId"
+                      name="leaveTechnician"
+                      required
+                      [disabled]="editingLeaveId ? true : (leaveTechLoading || leaveSubmitting || leavePrefillLoading)"
+                    >
+                      <option value="" disabled>-- Select technician --</option>
+                      <option *ngFor="let tech of leaveTechnicians" [value]="tech.id">{{ tech.name }}</option>
+                    </select>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">From Date</label>
+                    <input
+                      class="form-input"
+                      type="date"
+                      [(ngModel)]="leaveForm.startDate"
+                      name="leaveStartDate"
+                      required
+                      [disabled]="leaveSubmitting"
+                    />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">To Date</label>
+                    <input
+                      class="form-input"
+                      type="date"
+                      [(ngModel)]="leaveForm.endDate"
+                      name="leaveEndDate"
+                      required
+                      [disabled]="leaveSubmitting || leavePrefillLoading"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Reason</label>
+                    <textarea
+                      class="form-input"
+                      rows="3"
+                      [(ngModel)]="leaveForm.reason"
+                      name="leaveReason"
+                      required
+                      [disabled]="leaveSubmitting || leavePrefillLoading"
+                    ></textarea>
+                  </div>
+                  <div class="modal-error" *ngIf="leaveError">{{ leaveError }}</div>
+                  <!-- <div class="modal-error" *ngIf="leaveTechLoading">Loading technicians...</div>
+                  <div class="modal-error" *ngIf="leavePrefillLoading">Loading leave...</div> -->
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" type="button" (click)="closeLeaveModal()" [disabled]="leaveSubmitting">Close</button>
+                  <button class="btn-primary" type="submit" [disabled]="leaveSubmitting || leaveTechLoading">
+                    {{ leaveSubmitting ? 'Saving...' : (editingLeaveId ? 'Update PTO' : 'Save PTO') }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <app-delete-modal
+            [isOpen]="showLeaveDeleteModal"
+            [deleting]="leaveDeleting"
+            title="Delete leave"
+            message="Are you sure you want to delete this leave?"
+            (cancel)="closeLeaveDelete()"
+            (confirm)="confirmLeaveDelete()"
+          ></app-delete-modal>
+
+          <!-- Holiday Modal -->
+          <div class="modal-backdrop" *ngIf="showHolidayModal" (click)="closeHolidayModal()">
+            <div class="modal-dialog small" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h3>{{ editingHolidayId ? 'Edit Holiday' : 'Add Holiday' }}</h3>
+              </div>
+              <form (ngSubmit)="submitHoliday()" novalidate>
+                <div class="modal-body">
+                  <div class="form-group">
+                    <label class="form-label">Holiday Name</label>
+                    <input class="form-input" type="text" [(ngModel)]="holidayForm.holidayName" name="holidayName" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Holiday Type</label>
+                    <select class="form-input" [(ngModel)]="holidayForm.holidayType" name="holidayType" required>
+                      <option value="NATIONAL">National</option>
+                      <option value="COMPANY">Company</option>
+                    </select>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Holiday Date</label>
+                    <input class="form-input" type="date" [(ngModel)]="holidayForm.holidayDate" name="holidayDate" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-input" rows="3" [(ngModel)]="holidayForm.notes" name="holidayNotes"></textarea>
+                  </div>
+                  <!-- <div class="modal-error" *ngIf="holidayError">{{ holidayError }}</div>
+                  <div class="modal-error" *ngIf="holidayPrefillLoading">Loading holiday...</div> -->
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" type="button" (click)="closeHolidayModal()" [disabled]="holidaySubmitting">Close</button>
+                  <button class="btn-primary" type="submit" [disabled]="holidaySubmitting || holidayPrefillLoading">
+                    {{ holidaySubmitting ? 'Saving...' : (editingHolidayId ? 'Update Holiday' : 'Save Holiday') }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <app-delete-modal
+            [isOpen]="showHolidayDeleteModal"
+            [deleting]="holidayDeleting"
+            title="Delete holiday"
+            message="Are you sure you want to delete this holiday?"
+            (cancel)="closeHolidayDelete()"
+            (confirm)="confirmHolidayDelete()"
+          ></app-delete-modal>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'time-sheet'">
+          <section class="timesheet-card">
+            <div class="timesheet-toolbar">
+              <div class="timesheet-period">
+                <label>View:</label>
+                <select [(ngModel)]="timeSheetView" (ngModelChange)="onTimeSheetViewChange()">
+                  <option value="WEEK">Week</option>
+                  <option value="BY_WEEK">By Week</option>
+                </select>
+                <button type="button" class="period-nav" (click)="previousPayPeriod()">&lt;</button>
+                <span class="period-range">{{ formatDisplayDate(payPeriodStart) }} to {{ formatDisplayDate(payPeriodEnd) }}</span>
+                <button type="button" class="period-nav" (click)="nextPayPeriod()">&gt;</button>
+              </div>
+              <div class="timesheet-actions">
+                <button type="button" class="ts-btn ts-btn-primary" (click)="addTimeSheetRow()">+ Add Row</button>
+                <button type="button" class="ts-btn ts-btn-ghost" (click)="deleteMarkedRows()">Delete Marked</button>
+              </div>
+            </div>
+
+            <div class="table-wrapper timesheet-table-wrap">
+              <table class="timesheet-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Pay Code</th>
+                    <th>Hours</th>
+                    <th>Accounting Unit</th>
+                    <th>FERC</th>
+                    <th>Activity</th>
+                    <th>Comment</th>
+                    <th>Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of timeSheetRows">
+                    <td>
+                      <input type="date" [(ngModel)]="row.date" />
+                    </td>
+                    <td>
+                      <select [(ngModel)]="row.payCode">
+                        <option *ngFor="let code of timeSheetPayCodes" [value]="code.value">{{ code.label }}</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
+                    </td>
+                    <td>
+                      <select [(ngModel)]="row.accountingUnit">
+                        <option value="Operations">Operations</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Field">Field</option>
+                      </select>
+                    </td>
+                    <td>
+                      <select [(ngModel)]="row.ferc">
+                        <option value="None">None</option>
+                        <option value="Plant">Plant</option>
+                        <option value="Admin">Admin</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" [(ngModel)]="row.activity" placeholder="Activity" />
+                    </td>
+                    <td>
+                      <input type="text" [(ngModel)]="row.comment" placeholder="Comment" />
+                    </td>
+                    <td class="delete-cell">
+                      <input type="checkbox" [(ngModel)]="row.markedForDelete" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="timesheet-total-line">
+              <span>Total:</span>
+              <strong>{{ grandTotalHours | number:'1.2-2' }}</strong>
+            </div>
+
+            <div class="timesheet-summary">
+              <h3>Timecard Summary</h3>
+              <div class="summary-grid">
+                <div class="summary-col">
+                  <h4>Worked</h4>
+                  <div class="summary-row">
+                    <span>Regular Earnings</span>
+                    <strong>{{ workedTotal | number:'1.2-2' }}</strong>
+                  </div>
+                </div>
+                <div class="summary-col">
+                  <h4>Non-Worked</h4>
+                  <div class="summary-row">
+                    <span>PTO / Sick</span>
+                    <strong>{{ nonWorkedTotal | number:'1.2-2' }}</strong>
+                  </div>
+                </div>
+                <div class="summary-col">
+                  <h4>Premium</h4>
+                  <div class="summary-row">
+                    <span>Holiday / Overtime</span>
+                    <strong>{{ premiumTotal | number:'1.2-2' }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="timesheet-submit-wrap">
+              <button type="button" class="ts-btn ts-btn-primary" (click)="sendForApproval()" [disabled]="timesheetSubmitting">
+                {{ timesheetSubmitting ? 'Sending...' : 'Send for Approval' }}
+              </button>
+            </div>
+          </section>
+        </ng-container>
+
+        <section class="placeholder" *ngSwitchDefault>
+          <div class="placeholder-card">
+            <h3>{{ activeLabel }}</h3>
+            <p>Coming soon. Click Dashboard to return.</p>
+          </div>
+        </section>
+      </ng-container>
+    </main>
+  </div>
+</div>
+

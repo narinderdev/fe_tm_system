@@ -1,0 +1,38 @@
+<div class="vh-page">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="vh-header">
+    <button class="back-link" type="button" (click)="goBack()"><- Back to Holidays</button>
+    <div class="id-chip" *ngIf="holiday?.id || holiday?.holidayId">
+      HOL{{ (holiday?.id || holiday?.holidayId) | number:'2.0' }}
+    </div>
+  </div>
+
+  <!-- <div *ngIf="error" class="error">{{ error }}</div> -->
+
+  <ng-container *ngIf="!error && holiday">
+    <div class="card">
+      <div class="card-row">
+        <div class="label">Holiday Name</div>
+        <div class="value">{{ holiday.holidayName || '-' }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">Type</div>
+        <div class="value">{{ (holiday.holidayType || '') | uppercase }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">Date</div>
+        <div class="value">{{ holiday.holidayDate || '-' }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">Notes</div>
+        <div class="value">{{ holiday.notes || '-' }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">Create Date</div>
+        <div class="value">{{ holiday.createdAt | date:'medium' }}</div>
+      </div>
+    </div>
+  </ng-container>
+</div>
+

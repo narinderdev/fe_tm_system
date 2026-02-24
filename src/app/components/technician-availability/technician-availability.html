@@ -1,0 +1,63 @@
+<div class="availability-page">
+  <div class="page-header">
+    <h1>Calendar / Availability</h1>
+  </div>
+
+  <div class="calendar-controls">
+    <div class="legend">
+      <span class="legend-item" *ngFor="let item of legend">
+        <span class="dot" [ngClass]="item.dot"></span> {{ item.status }}
+      </span>
+    </div>
+    <div class="window-legend">
+      <span class="legend-item">
+        <span class="window-chip busy legend-chip">Busy window</span>
+      </span>
+      <span class="legend-item">
+        <span class="window-chip free legend-chip">Free window</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="calendar-container">
+    <!-- <div *ngIf="error" class="error-message">{{ error }}</div> -->
+    
+    <ng-container *ngIf="!error">
+      <div class="calendar-header">
+        <h2 class="month-title">{{ getMonthYear() }}</h2>
+      </div>
+
+      <div class="calendar-grid" *ngIf="!loading">
+        <div class="weekday-header" *ngFor="let day of weekdays">{{ day }}</div>
+
+        <div *ngFor="let day of calendarDays" 
+             class="calendar-day" 
+         [ngClass]="day.isEmpty ? 'empty' : statusClass(day.status)">
+          <ng-container *ngIf="!day.isEmpty">
+            <div class="day-number">{{ day.dayNumber }}</div>
+            <div class="day-status" *ngIf="day.status">
+              {{ day.status }}
+            </div>
+            <div class="window-group" *ngIf="shouldShowWindows(day)">
+              <div class="window-chip busy" *ngFor="let slot of day.busyWindows">
+                {{ formatWindow(slot) }}
+              </div>
+              <div class="window-chip free" *ngFor="let slot of day.freeWindows">
+                {{ formatWindow(slot) }}
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+
+      <div *ngIf="loading" class="loading-overlay">
+        <div class="spinner"></div>
+      </div>
+    </ng-container>
+  </div>
+  
+  <button class="back-btn-fixed top-right" type="button" (click)="goBack()">
+    <- Back to Technicians
+  </button>
+</div>
+

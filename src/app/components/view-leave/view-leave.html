@@ -1,0 +1,46 @@
+<div class="vh-page">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="vh-header">
+    <button class="back-link" type="button" (click)="goBack()"><- Back to Leaves</button>
+    <div class="id-chip" *ngIf="leaveId">
+      LEAVE {{ leaveId }}
+    </div>
+  </div>
+
+  <ng-container *ngIf="!error && leave">
+    <div class="card">
+      <div class="card-row">
+        <div class="label">Technician</div>
+        <div class="value">{{ leave.technicianName || leave.technician || '-' }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">From Date</div>
+        <div class="value">{{ leave.fromDate || leave.startDate || '-' }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">To Date</div>
+        <div class="value">{{ leave.toDate || leave.endDate || '-' }}</div>
+      </div>
+      <div class="card-row">
+        <div class="label">Reason</div>
+        <div class="value">{{ leave.reason || '-' }}</div>
+      </div>
+      <div class="card-row" *ngIf="leave.leaveType || leave.type">
+        <div class="label">Type</div>
+        <div class="value">{{ (leave.leaveType || leave.type) | uppercase }}</div>
+      </div>
+      <div class="card-row" *ngIf="leave.status">
+        <div class="label">Status</div>
+        <div class="value">{{ (leave.status || '') | uppercase }}</div>
+      </div>
+      <div class="card-row" *ngIf="leave.createdAt">
+        <div class="label">Create Date</div>
+        <div class="value">{{ leave.createdAt | date:'medium' }}</div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- <div *ngIf="error" class="error">{{ error }}</div> -->
+</div>
+

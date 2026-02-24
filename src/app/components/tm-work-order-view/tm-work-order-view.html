@@ -1,0 +1,81 @@
+<div class="tm-wo-page">
+  <div class="tm-wo-header">
+    <button class="back-link" type="button" (click)="goBack()"><- Back to Work Orders</button>
+    <div class="id-chip" *ngIf="workOrder?.workOrderId">
+      {{ workOrder?.workOrderId }}
+    </div>
+  </div>
+
+  <app-loader [visible]="isLoading"></app-loader>
+
+  <ng-container *ngIf="!isLoading">
+    <!-- <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div> -->
+
+    <ng-container *ngIf="workOrder">
+      <section class="hero">
+        <div>
+          <h1>{{ workOrder.woTitle || 'Work Order' }}</h1>
+          <p class="sub">{{ workOrder.descriptionScope || 'No description provided.' }}</p>
+        </div>
+        <div class="badges">
+          <span class="pill pill-priority" [ngClass]="priorityLabel.toLowerCase()">{{ priorityLabel }}</span>
+          <span class="pill pill-status">{{ statusLabel }}</span>
+        </div>
+      </section>
+
+      <section class="summary">
+        <div class="summary-card">
+          <div class="label">Assigned To</div>
+          <div class="value">{{ assignedToLabel }}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Due Date</div>
+          <div class="value">{{ dueDateLabel }}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Total Hours</div>
+          <div class="value">{{ totalHoursLast7 }}</div>
+        </div>
+      </section>
+
+      <section class="blue-banner">
+        <div>
+          <div class="banner-label">Total Working Hours (Last 7 Days)</div>
+          <div class="banner-value">{{ totalHoursLast7 }}</div>
+        </div>
+        <div class="banner-days">
+          <div class="banner-label">Days Present</div>
+          <div class="banner-value">{{ daysPresentLast7 }}/7</div>
+        </div>
+      </section>
+
+      <section class="log-list" *ngFor="let day of logDays">
+        <div class="log-date">
+          <div class="date">{{ day.dayLabel }}</div>
+          <div class="weekday">{{ day.weekday }}</div>
+        </div>
+        <div class="log-entries">
+          <div class="log-entry" *ngFor="let entry of day.entries">
+            <div class="technician">{{ entry.technician }}</div>
+            <div class="time-block">
+              <span class="label">Check In</span>
+              <span class="value">{{ entry.checkIn || '- -' }}</span>
+            </div>
+            <div class="time-block">
+              <span class="label">Check Out</span>
+              <span class="value">{{ entry.checkOut || '- -' }}</span>
+            </div>
+            <div class="time-block">
+              <span class="label">Hours</span>
+              <span class="value strong">{{ entry.hours }}</span>
+            </div>
+            <div class="status-chip" [ngClass]="entry.status === 'Present' ? 'present' : 'absent'">
+              {{ entry.status }}
+            </div>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </ng-container>
+</div>
+
