@@ -28,11 +28,14 @@ interface TimesheetDetailRow {
 export class TimesheetViewComponent implements OnInit {
   loading = false;
   error?: string;
+  showApproveConfirm = false;
+  approving = false;
 
   timesheetId = 0;
   periodStartDate = '-';
   periodEndDate = '-';
   viewType = '-';
+  status = '-';
   technicianId = 1;
   totalWorked = 0;
   totalNonWorked = 0;
@@ -147,6 +150,52 @@ export class TimesheetViewComponent implements OnInit {
     return this.formatLabel(value);
   }
 
+  get canApproveTimesheet(): boolean {
+    const role = String(localStorage.getItem('userRole') ?? '').trim().toUpperCase();
+    return role === 'ADMIN' && this.status === 'PENDING';
+  }
+
+  approveTimesheet(): void {
+    this.showApproveConfirm = true;
+  }
+
+  cancelApprove(): void {
+    if (this.approving) {
+      return;
+    }
+    this.showApproveConfirm = false;
+  }
+
+  confirmApprove(): void {
+    if (this.approving || !this.timesheetId) {
+      return;
+    }
+
+    this.approving = true;
+    this.cdr.detectChanges();
+    this.timesheetService
+      .approveTimesheet(this.timesheetId)
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.approving = false;
+            this.status = 'APPROVED';
+            this.showApproveConfirm = false;
+            this.toastr.success('Timesheet approved successfully.');
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.approving = false;
+            this.toastr.error('Failed to approve timesheet.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
   buildHtmlTable(headers: string[], rows: string[][]): string {
     const head = headers.map((header) => `<th>${this.escapeHtml(header)}</th>`).join('');
     const body = rows
@@ -207,6 +256,7 @@ export class TimesheetViewComponent implements OnInit {
             this.periodStartDate = data?.period_start_date ?? data?.periodStartDate ?? '-';
             this.periodEndDate = data?.period_end_date ?? data?.periodEndDate ?? '-';
             this.viewType = this.formatLabel(data?.view_type ?? data?.viewType ?? '-');
+            this.status = String(data?.status ?? '-').trim().toUpperCase();
             this.technicianId = Number(data?.technician_id ?? data?.technicianId) || 1;
             const rawWorked = data?.totalWorked ?? data?.total_worked;
             const rawNonWorked = data?.totalNonWorked ?? data?.total_non_worked;

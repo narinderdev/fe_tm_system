@@ -79,4 +79,25 @@ export class TimesheetService {
     });
     return this.http.get(this.apiUrl, { headers });
   }
+
+  fetchTimesheetsByTechnician(technicianId: number): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/technicians/${technicianId}`, { headers });
+  }
+
+  updateTimesheet(id: number, payload: TimesheetSubmitPayload): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.put(`${this.apiUrl}/${id}`, payload, { headers });
+  }
+
+  approveTimesheet(id: number): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.post(`${this.apiUrl}/${id}/approve`, {}, { headers });
+  }
 }

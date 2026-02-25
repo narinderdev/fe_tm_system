@@ -101,6 +101,7 @@ export class LoginComponent {
           const token = (response as any)?.data?.token || (response as any)?.token;
           const mfaToken = (response as any)?.data?.mfa_token ?? (response as any)?.mfa_token ?? null;
           const user = (response as any)?.data?.user;
+          const role = (response as any)?.data?.user?.role ?? (response as any)?.data?.role;
           const mfaEnabled = (response as any)?.data?.user?.mfaEnabled ?? (response as any)?.data?.mfaEnabled ?? false;
           const daysUntilPasswordExpiry =
             (response as any)?.data?.daysUntilPasswordExpiry ??
@@ -115,7 +116,10 @@ export class LoginComponent {
           const technicianId = (response as any)?.data?.technician?.id
             ?? (response as any)?.data?.user?.technician?.id
             ?? (response as any)?.data?.technicianId
-            ?? (response as any)?.data?.user?.technicianId;
+            ?? (response as any)?.data?.user?.technicianId
+            ?? (((String(role ?? '').trim().toUpperCase() === 'TECHNICIAN')
+              ? (response as any)?.data?.user?.id
+              : undefined));
           const message = response?.message || (isSuccess ? 'Login successful' : 'Invalid credentials');
 
           if (isSuccess) {
@@ -139,6 +143,11 @@ export class LoginComponent {
                 localStorage.setItem('technicianId', String(technicianId));
               } else {
                 localStorage.removeItem('technicianId');
+              }
+              if (role) {
+                localStorage.setItem('userRole', String(role));
+              } else {
+                localStorage.removeItem('userRole');
               }
 
               // Token may or may not be present depending on MFA flow.

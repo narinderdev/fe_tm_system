@@ -2,12 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, of } from 'rxjs';
 import { convertToParamMap, NavigationEnd } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
-import { vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastrService } from 'ngx-toastr';
 
 import { TmSystemComponent } from './tm-system';
 import { TechnicianService } from '../../services/technician.service';
 import { WorkOrderService } from '../../services/work-order.service';
 import { DashboardService } from '../../services/dashboard.service';
+import { TimesheetService } from '../../services/timesheet.service';
 import { ActivatedRoute, Router } from '@angular/router';
 
 describe('TmSystemComponent (TM data tabs)', () => {
@@ -56,6 +58,18 @@ describe('TmSystemComponent (TM data tabs)', () => {
     fetchTechnicianDashboard: vi.fn().mockReturnValue(of({ data: {} }))
   };
 
+  const timesheetServiceMock = {
+    fetchTimesheets: vi.fn().mockReturnValue(of({ data: [] })),
+    fetchTimesheetById: vi.fn().mockReturnValue(of({ data: {} })),
+    submitTimesheet: vi.fn().mockReturnValue(of({ data: {} }))
+  };
+
+  const toastrMock = {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn()
+  };
+
   const routerMock = {
     navigate: vi.fn(),
     events: of(new NavigationEnd(1, '/tm-system', '/tm-system')),
@@ -77,6 +91,8 @@ describe('TmSystemComponent (TM data tabs)', () => {
         { provide: TechnicianService, useValue: technicianServiceMock },
         { provide: WorkOrderService, useValue: workOrderServiceMock },
         { provide: DashboardService, useValue: dashboardServiceMock },
+        { provide: TimesheetService, useValue: timesheetServiceMock },
+        { provide: ToastrService, useValue: toastrMock },
         { provide: Router, useValue: routerMock },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ tab: 'dashboard' })) } }
       ]

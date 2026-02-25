@@ -66,11 +66,10 @@ describe('SignUpComponent', () => {
       email: 'test@email.com',
       password: 'Password$Strong'
     });
-    expect(localStorage.getItem('signupUserId')).toBe('44');
-    expect(localStorage.getItem('signupEmail')).toBe('test@email.com');
-    expect(navigateSpy).toHaveBeenCalledWith(['/verify-otp'], {
-      queryParams: { email: 'test@email.com' }
-    });
+    expect(localStorage.getItem('signupUserId')).toBeNull();
+    expect(localStorage.getItem('signupEmail')).toBeNull();
+    expect(toastrMock.success).toHaveBeenCalledWith('Signup successful.');
+    expect(navigateSpy).toHaveBeenCalledWith(['/login']);
   });
 
   it('enforces required field validation', () => {

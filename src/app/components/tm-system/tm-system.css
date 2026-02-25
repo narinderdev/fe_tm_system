@@ -996,6 +996,13 @@ td:nth-child(7) {
   letter-spacing: -0.02em;
 }
 
+.timesheet-section-title {
+  margin: 12px 0 10px;
+  font-size: 18px;
+  color: #0f1e36;
+  letter-spacing: -0.01em;
+}
+
 .timesheet-list-toolbar {
   display: flex;
   align-items: center;

@@ -479,48 +479,133 @@
           <section class="timesheet-card" *ngIf="timeSheetScreenMode === 'list'; else timeSheetCreateTemplate">
             <div class="timesheet-list-header">
               <h3></h3>
-              <button type="button" class="ts-btn ts-btn-primary" (click)="openTimeSheetCreate()">Create timesheet</button>
+              <div class="timesheet-actions">
+                <button type="button" class="ts-btn ts-btn-primary" (click)="openTimeSheetCreate()">Create timesheet</button>
+              </div>
             </div>
 
-            <div class="table-wrapper timesheet-table-wrap">
-              <table class="timesheet-table timesheet-list-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Period Start</th>
-                    <th>Period End</th>
-                    <th>View Type</th>
-                    <th>Rows</th>
-                    <th>Total Hours</th>
-                    <th class="actions-col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngIf="timeSheetListLoading">
-                    <td colspan="7">Loading timesheet...</td>
-                  </tr>
-                  <tr *ngIf="!timeSheetListLoading && timeSheetListError">
-                    <td colspan="7">{{ timeSheetListError }}</td>
-                  </tr>
-                  <tr *ngFor="let item of timeSheetList">
-                    <td class="linkish">#{{ item.id }}</td>
-                    <td>{{ item.periodStartDate }}</td>
-                    <td>{{ item.periodEndDate }}</td>
-                    <td>{{ formatTimesheetViewType(item.viewType) }}</td>
-                    <td>{{ item.rowCount }}</td>
-                    <td>{{ item.totalHours | number:'1.2-2' }}</td>
-                    <td class="actions">
-                      <button class="icon-btn ghost" aria-label="View timesheet" (click)="openTimesheetDetail(item.id)">
-                        <img src="/assets/icons/Vector.svg" alt="View" />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr *ngIf="!timeSheetListLoading && !timeSheetListError && !timeSheetList.length">
-                    <td colspan="7">No timesheet records found.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <ng-container *ngIf="canViewApprovedTimesheets; else defaultTimesheetList">
+              <h3 class="timesheet-section-title">Pending</h3>
+              <div class="table-wrapper timesheet-table-wrap">
+                <table class="timesheet-table timesheet-list-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Period Start</th>
+                      <th>Period End</th>
+                      <th>View Type</th>
+                      <th>Total Hours</th>
+                      <th class="actions-col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngIf="timeSheetListLoading">
+                      <td colspan="6">Loading timesheet...</td>
+                    </tr>
+                    <tr *ngIf="!timeSheetListLoading && timeSheetListError">
+                      <td colspan="6">{{ timeSheetListError }}</td>
+                    </tr>
+                    <tr *ngFor="let item of pendingTimeSheetList">
+                      <td class="linkish">#{{ item.id }}</td>
+                      <td>{{ item.periodStartDate }}</td>
+                      <td>{{ item.periodEndDate }}</td>
+                      <td>{{ formatTimesheetViewType(item.viewType) }}</td>
+                      <td>{{ item.totalHours | number:'1.2-2' }}</td>
+                      <td class="actions">
+                        <button class="icon-btn ghost" aria-label="View timesheet" (click)="openTimesheetDetail(item.id)">
+                          <img src="/assets/icons/Vector.svg" alt="View" />
+                        </button>
+                        <button class="icon-btn ghost" aria-label="Edit timesheet" (click)="openTimesheetEdit(item.id)">
+                          <img src="/assets/icons/edit.svg" alt="Edit" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr *ngIf="!timeSheetListLoading && !timeSheetListError && !pendingTimeSheetList.length">
+                      <td colspan="6">No pending timesheet records found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 class="timesheet-section-title">Approved</h3>
+              <div class="table-wrapper timesheet-table-wrap">
+                <table class="timesheet-table timesheet-list-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Period Start</th>
+                      <th>Period End</th>
+                      <th>View Type</th>
+                      <th>Total Hours</th>
+                      <th class="actions-col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngIf="timeSheetListLoading">
+                      <td colspan="6">Loading timesheet...</td>
+                    </tr>
+                    <tr *ngIf="!timeSheetListLoading && timeSheetListError">
+                      <td colspan="6">{{ timeSheetListError }}</td>
+                    </tr>
+                    <tr *ngFor="let item of approvedTimeSheetList">
+                      <td class="linkish">#{{ item.id }}</td>
+                      <td>{{ item.periodStartDate }}</td>
+                      <td>{{ item.periodEndDate }}</td>
+                      <td>{{ formatTimesheetViewType(item.viewType) }}</td>
+                      <td>{{ item.totalHours | number:'1.2-2' }}</td>
+                      <td class="actions">
+                        <button class="icon-btn ghost" aria-label="View timesheet" (click)="openTimesheetDetail(item.id)">
+                          <img src="/assets/icons/Vector.svg" alt="View" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr *ngIf="!timeSheetListLoading && !timeSheetListError && !approvedTimeSheetList.length">
+                      <td colspan="6">No approved timesheet records found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-container>
+
+            <ng-template #defaultTimesheetList>
+              <div class="table-wrapper timesheet-table-wrap">
+                <table class="timesheet-table timesheet-list-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Period Start</th>
+                      <th>Period End</th>
+                      <th>View Type</th>
+                      <th>Total Hours</th>
+                      <th class="actions-col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngIf="timeSheetListLoading">
+                      <td colspan="6">Loading timesheet...</td>
+                    </tr>
+                    <tr *ngIf="!timeSheetListLoading && timeSheetListError">
+                      <td colspan="6">{{ timeSheetListError }}</td>
+                    </tr>
+                    <tr *ngFor="let item of timeSheetList">
+                      <td class="linkish">#{{ item.id }}</td>
+                      <td>{{ item.periodStartDate }}</td>
+                      <td>{{ item.periodEndDate }}</td>
+                      <td>{{ formatTimesheetViewType(item.viewType) }}</td>
+                      <td>{{ item.totalHours | number:'1.2-2' }}</td>
+                      <td class="actions">
+                        <button class="icon-btn ghost" aria-label="View timesheet" (click)="openTimesheetDetail(item.id)">
+                          <img src="/assets/icons/Vector.svg" alt="View" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr *ngIf="!timeSheetListLoading && !timeSheetListError && !timeSheetList.length">
+                      <td colspan="6">No timesheet records found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-template>
           </section>
 
           <ng-template #timeSheetCreateTemplate>
@@ -628,7 +713,7 @@
 
               <div class="timesheet-submit-wrap">
                 <button type="button" class="ts-btn ts-btn-primary" (click)="sendForApproval()" [disabled]="timesheetSubmitting">
-                  {{ timesheetSubmitting ? 'Sending...' : 'Send for Approval' }}
+                  {{ timesheetSubmitting ? (isEditingTimesheet ? 'Updating...' : 'Sending...') : (isEditingTimesheet ? 'Update Timesheet' : 'Send for Approval') }}
                 </button>
               </div>
             </section>
