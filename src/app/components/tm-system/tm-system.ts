@@ -47,9 +47,9 @@ interface TimeSheetRow {
   workOrderId: number;
   payCode: string;
   hours: number | null;
-  accountingUnit: string;
-  ferc: string;
-  activity: string;
+  department: string;
+  account: string;
+  project: string;
   comment: string;
   markedForDelete: boolean;
 }
@@ -59,6 +59,7 @@ type TimeSheetScreenMode = 'list' | 'create';
 
 interface TimesheetListItem {
   id: number;
+  technicianName: string;
   periodStartDate: string;
   periodEndDate: string;
   viewType: string;
@@ -417,9 +418,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
                 workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
                 payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
                 hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
-                accountingUnit: row?.accounting_unit ?? row?.accountingUnit ?? 'Operations',
-                ferc: row?.ferc ?? 'None',
-                activity: row?.activity ?? '',
+                department: row?.department ?? '-',
+                account: row?.account ?? '-',
+                project: row?.project ?? '',
                 comment: row?.comment ?? '',
                 markedForDelete: !!(row?.is_deleted ?? row?.isDeleted)
               }));
@@ -480,9 +481,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       workOrderId: 0,
       payCode: 'REGULAR',
       hours: null,
-      accountingUnit: 'Operations',
-      ferc: 'None',
-      activity: '',
+      department: 'Operations',
+      account: 'None',
+      project: '',
       comment: '',
       markedForDelete: false
     });
@@ -555,9 +556,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         pay_code: row.payCode,
         hours: Number(row.hours) || 0,
         daily_total: Number(row.hours) || 0,
-        accounting_unit: row.accountingUnit || '',
-        ferc: row.ferc || '',
-        activity: row.activity || '',
+        department: row.department || '',
+        account: row.account || '',
+        project: row.project || '',
         comment: row.comment || '',
         is_deleted: !!row.markedForDelete
       }));
@@ -632,9 +633,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         workOrderId: 0,
         payCode: 'REGULAR',
         hours: null,
-        accountingUnit: 'Operations',
-        ferc: 'None',
-        activity: '',
+        department: 'Operations',
+        account: 'None',
+        project: '',
         comment: '',
         markedForDelete: false
       });
@@ -718,6 +719,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
         return {
           id: Number(item?.id) || 0,
+          technicianName: item?.technicianName ?? item?.technician_name ?? '-',
           periodStartDate: item?.period_start_date ?? item?.periodStartDate ?? '-',
           periodEndDate: item?.period_end_date ?? item?.periodEndDate ?? '-',
           viewType: item?.view_type ?? item?.viewType ?? '-',

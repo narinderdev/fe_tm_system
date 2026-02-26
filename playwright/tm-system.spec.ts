@@ -115,9 +115,9 @@ const timesheetDetailPayload = {
         pay_code: 'REGULAR',
         hours: 8,
         daily_total: 8,
-        accounting_unit: 'Operations',
-        ferc: 'None',
-        activity: 'Site inspection',
+        department: 'Operations',
+        account: 'None',
+        project: 'Site inspection',
         comment: 'Completed',
         is_deleted: false
       },
@@ -127,9 +127,9 @@ const timesheetDetailPayload = {
         pay_code: 'PTO',
         hours: 2,
         daily_total: 2,
-        accounting_unit: 'Operations',
-        ferc: 'None',
-        activity: '',
+        department: 'Operations',
+        account: 'None',
+        project: '',
         comment: 'Medical appointment',
         is_deleted: false
       }

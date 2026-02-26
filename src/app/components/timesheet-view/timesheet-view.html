@@ -34,9 +34,9 @@
             <th>Pay Code</th>
             <th>Hours</th>
             <th>Daily Total</th>
-            <th>Accounting Unit</th>
-            <th>FERC</th>
-            <th>Activity</th>
+            <th>Department</th>
+            <th>Account</th>
+            <th>Project</th>
             <th>Comment</th>
           </tr>
         </thead>
@@ -47,9 +47,9 @@
             <td><span class="pay-code-pill">{{ formatLabel(row.payCode) }}</span></td>
             <td>{{ row.hours | number:'1.2-2' }}</td>
             <td>{{ row.dailyTotal | number:'1.2-2' }}</td>
-            <td>{{ row.accountingUnit }}</td>
-            <td>{{ row.ferc }}</td>
-            <td>{{ row.activity || '-' }}</td>
+            <td>{{ row.department }}</td>
+            <td>{{ row.account }}</td>
+            <td>{{ row.project || '-' }}</td>
             <td>{{ row.comment || '-' }}</td>
           </tr>
           <tr *ngIf="!rows.length">

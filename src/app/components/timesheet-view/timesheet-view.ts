@@ -11,9 +11,9 @@ interface TimesheetDetailRow {
   payCode: string;
   hours: number;
   dailyTotal: number;
-  accountingUnit: string;
-  ferc: string;
-  activity: string;
+  department: string;
+  account: string;
+  project: string;
   comment: string;
   isDeleted: boolean;
 }
@@ -82,9 +82,9 @@ export class TimesheetViewComponent implements OnInit {
       'Pay Code',
       'Hours',
       'Daily Total',
-      'Accounting Unit',
-      'FERC',
-      'Activity',
+      'Department',
+      'Account',
+      'Project',
       'Comment'
     ];
 
@@ -94,9 +94,9 @@ export class TimesheetViewComponent implements OnInit {
       this.formatLabel(row.payCode) || '-',
       row.hours.toFixed(2),
       row.dailyTotal.toFixed(2),
-      row.accountingUnit || '-',
-      row.ferc || '-',
-      row.activity || '-',
+      row.department || '-',
+      row.account || '-',
+      row.project || '-',
       row.comment || '-'
     ]);
 
@@ -276,9 +276,9 @@ export class TimesheetViewComponent implements OnInit {
               payCode: row?.pay_code ?? row?.payCode ?? '-',
               hours: Number(row?.hours) || 0,
               dailyTotal: Number(row?.daily_total ?? row?.dailyTotal) || 0,
-              accountingUnit: row?.accounting_unit ?? row?.accountingUnit ?? '-',
-              ferc: row?.ferc ?? '-',
-              activity: row?.activity ?? '',
+              department: row?.department ?? '-',
+              account: row?.account ?? '-',
+              project: row?.project ?? '',
               comment: row?.comment ?? '',
               isDeleted: !!(row?.is_deleted ?? row?.isDeleted)
             }));

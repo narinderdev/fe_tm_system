@@ -9,9 +9,9 @@ export interface TimesheetRowPayload {
   pay_code: string;
   hours: number;
   daily_total: number;
-  accounting_unit: string;
-  ferc: string;
-  activity: string;
+  department: string;
+  account: string;
+  project: string;
   comment: string;
   is_deleted: boolean;
 }
@@ -36,9 +36,9 @@ export interface TimesheetRowResponse {
   pay_code: string;
   hours: number;
   daily_total: number;
-  accounting_unit: string;
-  ferc: string;
-  activity: string;
+  department: string;
+  account: string;
+  project: string;
   comment: string;
   is_deleted: boolean;
 }
