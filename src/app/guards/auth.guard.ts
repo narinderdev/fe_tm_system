@@ -42,8 +42,18 @@ export class AuthGuard implements CanActivate, CanActivateChild {
     return localStorage.getItem('passwordExpired') === 'true' && !!localStorage.getItem('loginEmail');
   }
 
+  private canAccessPublicAuthFlow(url: string): boolean {
+    if (!this.isBrowser) {
+      return true;
+    }
+    return url.startsWith('/set-password');
+  }
+
   canActivate(_route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree {
     if (!this.isBrowser) {
+      return true;
+    }
+    if (this.canAccessPublicAuthFlow(state.url)) {
       return true;
     }
     if (this.isLoggedIn() || this.hasSignupUser()) {

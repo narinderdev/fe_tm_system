@@ -147,12 +147,29 @@ export interface TechnicianCreateResponse {
   data?: ApiTechnician;
 }
 
+export interface ActiveUserItem {
+  active?: boolean;
+  email?: string;
+  firstName?: string;
+  id?: number;
+  lastName?: string;
+  role?: string;
+}
+
+export interface ActiveUsersResponse {
+  statusCode?: number;
+  status?: string;
+  message?: string;
+  data?: ActiveUserItem[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class TechnicianService {
   private readonly apiUrl = `${environment.apiUrl}/api/technicians`;
   private readonly teamsUrl = `${environment.apiUrl}/api/technician-teams`;
+  private readonly authUsersUrl = `${environment.apiUrl}/auth/users`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -165,6 +182,13 @@ export class TechnicianService {
     });
 
     return this.http.get<TechnicianListResponse>(this.apiUrl, { params, headers });
+  }
+
+  fetchActiveUsers(): Observable<ActiveUsersResponse> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get<ActiveUsersResponse>(this.authUsersUrl, { headers });
   }
 
   createTechnician(payload: CreateTechnicianPayload): Observable<TechnicianCreateResponse> {

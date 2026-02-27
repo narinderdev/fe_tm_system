@@ -10,10 +10,20 @@ import { TechnicianService } from '../../services/technician.service';
 import { WorkOrderService } from '../../services/work-order.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { TimesheetService } from '../../services/timesheet.service';
+import { UserManagementService } from '../../services/user-management.service';
+import { PermissionService } from '../../services/permission.service';
 import { ActivatedRoute, Router } from '@angular/router';
 
 describe('TmSystemComponent (TM data tabs)', () => {
   const technicianServiceMock = {
+    fetchActiveUsers: vi.fn().mockReturnValue(
+      of({
+        data: [
+          { id: 1, firstName: 'Admin', lastName: 'User', email: 'admin@test.com', role: 'Admin', active: true },
+          { id: 2, firstName: 'Tech', lastName: 'User', email: 'tech@test.com', role: 'Technician', active: true }
+        ]
+      })
+    ),
     fetchTechnicians: vi.fn().mockReturnValue(of({ data: { technicians: [] } })),
     fetchTechnicianTeams: vi.fn().mockReturnValue(
       of({
@@ -64,6 +74,15 @@ describe('TmSystemComponent (TM data tabs)', () => {
     submitTimesheet: vi.fn().mockReturnValue(of({ data: {} }))
   };
 
+  const userManagementServiceMock = {
+    fetchRoles: vi.fn().mockReturnValue(of({ data: [] })),
+    inviteUser: vi.fn().mockReturnValue(of({ data: {} }))
+  };
+
+  const permissionServiceMock = {
+    hasPermission: vi.fn().mockReturnValue(false)
+  };
+
   const toastrMock = {
     success: vi.fn(),
     error: vi.fn(),
@@ -85,6 +104,7 @@ describe('TmSystemComponent (TM data tabs)', () => {
   }
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [TmSystemComponent, RouterTestingModule],
       providers: [
@@ -92,6 +112,8 @@ describe('TmSystemComponent (TM data tabs)', () => {
         { provide: WorkOrderService, useValue: workOrderServiceMock },
         { provide: DashboardService, useValue: dashboardServiceMock },
         { provide: TimesheetService, useValue: timesheetServiceMock },
+        { provide: UserManagementService, useValue: userManagementServiceMock },
+        { provide: PermissionService, useValue: permissionServiceMock },
         { provide: ToastrService, useValue: toastrMock },
         { provide: Router, useValue: routerMock },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ tab: 'dashboard' })) } }
@@ -118,5 +140,21 @@ describe('TmSystemComponent (TM data tabs)', () => {
     expect(technicianServiceMock.fetchHolidays).toHaveBeenCalled();
     expect(comp.holidayRows.length).toBe(1);
     expect(comp.holidayRows[0].name).toBe('Test Holiday');
+  });
+
+  it('filters technician list to technician role for technician login', () => {
+    localStorage.setItem('userRole', 'TECHNICIAN');
+    const comp = createComponentWithTab('technicians');
+    expect(technicianServiceMock.fetchActiveUsers).toHaveBeenCalled();
+    expect(comp.technicianRows.length).toBe(1);
+    expect(comp.technicianRows[0].email).toBe('tech@test.com');
+  });
+
+  it('hides admin-role users in technician list for admin login', () => {
+    localStorage.setItem('userRole', 'ADMIN');
+    const comp = createComponentWithTab('technicians');
+    expect(technicianServiceMock.fetchActiveUsers).toHaveBeenCalled();
+    expect(comp.technicianRows.length).toBe(1);
+    expect(comp.technicianRows[0].email).toBe('tech@test.com');
   });
 });

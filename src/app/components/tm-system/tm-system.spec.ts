@@ -10,12 +10,15 @@ import { TechnicianService } from '../../services/technician.service';
 import { WorkOrderService } from '../../services/work-order.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { TimesheetService } from '../../services/timesheet.service';
+import { UserManagementService } from '../../services/user-management.service';
+import { PermissionService } from '../../services/permission.service';
 import { ActivatedRoute, Router } from '@angular/router';
 
 describe('TmSystemComponent (dashboard)', () => {
   const paramMap$ = new BehaviorSubject(convertToParamMap({ tab: 'dashboard' }));
 
   const technicianServiceMock = {
+    fetchActiveUsers: vi.fn().mockReturnValue(of({ data: [] })),
     fetchTechnicians: vi.fn().mockReturnValue(of({ data: { technicians: [] } })),
     fetchTechnicianTeams: vi.fn().mockReturnValue(of({ data: { teams: [] } })),
     fetchLeaves: vi.fn().mockReturnValue(of({ data: { leaves: [] } })),
@@ -46,6 +49,15 @@ describe('TmSystemComponent (dashboard)', () => {
     submitTimesheet: vi.fn().mockReturnValue(of({ data: {} }))
   };
 
+  const userManagementServiceMock = {
+    fetchRoles: vi.fn().mockReturnValue(of({ data: [] })),
+    inviteUser: vi.fn().mockReturnValue(of({ data: {} }))
+  };
+
+  const permissionServiceMock = {
+    hasPermission: vi.fn().mockReturnValue(false)
+  };
+
   const toastrMock = {
     success: vi.fn(),
     error: vi.fn(),
@@ -66,6 +78,8 @@ describe('TmSystemComponent (dashboard)', () => {
         { provide: WorkOrderService, useValue: workOrderServiceMock },
         { provide: DashboardService, useValue: dashboardServiceMock },
         { provide: TimesheetService, useValue: timesheetServiceMock },
+        { provide: UserManagementService, useValue: userManagementServiceMock },
+        { provide: PermissionService, useValue: permissionServiceMock },
         { provide: ToastrService, useValue: toastrMock },
         { provide: Router, useValue: routerMock },
         {

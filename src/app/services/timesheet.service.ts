@@ -16,14 +16,35 @@ export interface TimesheetRowPayload {
   is_deleted: boolean;
 }
 
+export interface TimesheetDayRowPayload {
+  pay_code: string;
+  hours: number;
+  accounting_unit: string;
+  ferc: string;
+  activity: string;
+  comment: string;
+  is_deleted: boolean;
+}
+
+export interface TimesheetDayPayload {
+  date: string;
+  day_of_week: string;
+  daily_total: number;
+  rows: TimesheetDayRowPayload[];
+}
+
 export interface TimesheetSubmitPayload {
   period_start_date: string;
   period_end_date: string;
   view_type: string;
   technician_id: number;
-  totalWorked: number;
-  totalNonWorked: number;
-  totalPremium: number;
+  total_worked: number;
+  total_non_worked: number;
+  total_premium: number;
+  totalWorked?: number;
+  totalNonWorked?: number;
+  totalPremium?: number;
+  timesheet_days?: TimesheetDayPayload[];
   timesheet_rows: TimesheetRowPayload[];
 }
 

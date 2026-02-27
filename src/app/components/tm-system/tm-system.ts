@@ -11,6 +11,8 @@ import { Loader } from '../loader/loader';
 import { DeleteModalComponent } from '../delete-modal/delete-modal';
 import { TimesheetService } from '../../services/timesheet.service';
 import { ToastrService } from 'ngx-toastr';
+import { PermissionService } from '../../services/permission.service';
+import { UserManagementService } from '../../services/user-management.service';
 
 interface Activity {
   technician: string;
@@ -52,6 +54,8 @@ interface TimeSheetRow {
   project: string;
   comment: string;
   markedForDelete: boolean;
+  isExtraRow: boolean;
+  isNewlyAdded: boolean;
 }
 
 type TimeSheetViewMode = 'WEEK' | 'BY_WEEK';
@@ -176,6 +180,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     holidayDate: '',
     notes: ''
   };
+  showInviteModal = false;
+  inviteSubmitting = false;
+  inviteForm: { firstName: string; lastName: string; email: string } = {
+    firstName: '',
+    lastName: '',
+    email: ''
+  };
 
   // Leave modal state
   showLeaveModal = false;
@@ -214,6 +225,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { value: 'PTO', label: 'PTO', type: 'non-worked' },
     { value: 'TRAINING', label: 'Training', type: 'worked' },
     { value: 'UNPAID_LEAVE', label: 'Unpaid leave', type: 'non-worked' },
+    { value: 'OVERTIME', label: 'Overtime', type: 'premium' },
     { value: 'OVERTIME_1_5', label: 'Overtime 1.5', type: 'premium' },
     { value: 'MISC_LEAVE', label: 'Misc Leave', type: 'non-worked' },
     { value: 'JURY_DUTY', label: 'Jury Duty', type: 'non-worked' },
@@ -231,6 +243,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     private workOrderService: WorkOrderService,
     private dashboardService: DashboardService,
     private timesheetService: TimesheetService,
+    private userManagementService: UserManagementService,
+    private permissionService: PermissionService,
     private toastr: ToastrService,
     private cdr: ChangeDetectorRef,
     private zone: NgZone
@@ -406,24 +420,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             this.payPeriodEnd = periodEnd;
             this.currentPeriodOffset = 0;
 
-            const sourceRows = Array.isArray(data?.timesheet_rows)
-              ? data.timesheet_rows
-              : (Array.isArray(data?.timesheetRows) ? data.timesheetRows : []);
+            const sourceRows = this.normalizeTimeSheetRowsFromData(data);
 
             if (sourceRows.length) {
-              this.timeSheetRows = sourceRows.map((row: any) => ({
-                id: this.nextTimeSheetRowId++,
-                date: row?.date ?? this.payPeriodStart,
-                technicianId: Number(row?.technician_id ?? row?.technicianId) || this.getCurrentTechnicianId(),
-                workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
-                payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
-                hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
-                department: row?.department ?? '-',
-                account: row?.account ?? '-',
-                project: row?.project ?? '',
-                comment: row?.comment ?? '',
-                markedForDelete: !!(row?.is_deleted ?? row?.isDeleted)
-              }));
+              this.timeSheetRows = sourceRows.map((row: any) => this.toUiTimeSheetRow(row));
             } else {
               this.seedTimeSheetRows();
             }
@@ -473,10 +473,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.setPayPeriod(0);
   }
 
-  addTimeSheetRow(): void {
-    this.timeSheetRows.push({
+  addTimeSheetRow(date?: string, insertAfterIndex?: number): void {
+    const nextRow: TimeSheetRow = {
       id: this.nextTimeSheetRowId++,
-      date: this.payPeriodStart,
+      date: date || this.payPeriodStart,
       technicianId: this.getCurrentTechnicianId(),
       workOrderId: 0,
       payCode: 'REGULAR',
@@ -485,8 +485,59 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       account: 'None',
       project: '',
       comment: '',
-      markedForDelete: false
-    });
+      markedForDelete: false,
+      isExtraRow: true,
+      isNewlyAdded: true
+    };
+
+    const targetIndex = Number(insertAfterIndex);
+    if (Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < this.timeSheetRows.length) {
+      this.timeSheetRows.splice(targetIndex + 1, 0, nextRow);
+    } else {
+      this.timeSheetRows.push(nextRow);
+    }
+
+    setTimeout(() => {
+      const row = this.timeSheetRows.find((item) => item.id === nextRow.id);
+      if (row) {
+        row.isNewlyAdded = false;
+      }
+    }, 1200);
+  }
+
+  removeTimeSheetRow(row: TimeSheetRow, index: number): void {
+    if (!this.canDeleteRow(row, index)) {
+      return;
+    }
+    if (index < 0 || index >= this.timeSheetRows.length) {
+      return;
+    }
+    this.timeSheetRows.splice(index, 1);
+  }
+
+  shouldShowPlusForRow(row: TimeSheetRow, index: number): boolean {
+    return this.isFirstRowForDate(index, row.date);
+  }
+
+  canDeleteRow(row: TimeSheetRow, _index: number): boolean {
+    if (row.isExtraRow) {
+      return true;
+    }
+    return this.getDateRowCount(row.date) > 1;
+  }
+
+  private isFirstRowForDate(index: number, date: string): boolean {
+    const dateKey = this.toDateKey(date);
+    return this.timeSheetRows.findIndex((row) => this.toDateKey(row.date) === dateKey) === index;
+  }
+
+  private getDateRowCount(date: string): number {
+    const dateKey = this.toDateKey(date);
+    return this.timeSheetRows.filter((row) => this.toDateKey(row.date) === dateKey).length;
+  }
+
+  private toDateKey(value: string): string {
+    return String(value ?? '').trim();
   }
 
   deleteMarkedRows(): void {
@@ -562,15 +613,23 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         comment: row.comment || '',
         is_deleted: !!row.markedForDelete
       }));
+    const payloadDays = this.buildTimesheetDaysPayload(payloadRows);
+    const workedTotal = Number(this.workedTotal) || 0;
+    const nonWorkedTotal = Number(this.nonWorkedTotal) || 0;
+    const premiumTotal = Number(this.premiumTotal) || 0;
 
     const payload = {
       period_start_date: this.payPeriodStart,
       period_end_date: this.payPeriodEnd,
       view_type: this.toApiViewType(this.timeSheetView),
       technician_id: this.getCurrentTechnicianId(),
-      totalWorked: Number(this.workedTotal) || 0,
-      totalNonWorked: Number(this.nonWorkedTotal) || 0,
-      totalPremium: Number(this.premiumTotal) || 0,
+      total_worked: workedTotal,
+      total_non_worked: nonWorkedTotal,
+      total_premium: premiumTotal,
+      totalWorked: workedTotal,
+      totalNonWorked: nonWorkedTotal,
+      totalPremium: premiumTotal,
+      timesheet_days: payloadDays,
       timesheet_rows: payloadRows
     };
 
@@ -635,10 +694,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         hours: null,
         department: 'Operations',
         account: 'None',
-        project: '',
-        comment: '',
-        markedForDelete: false
-      });
+      project: '',
+      comment: '',
+      markedForDelete: false,
+      isExtraRow: false,
+      isNewlyAdded: false
+    });
       cursor.setDate(cursor.getDate() + 1);
     }
     this.timeSheetRows = rows;
@@ -712,9 +773,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
     return source
       .map((item: any) => {
-        const rows = Array.isArray(item?.timesheet_rows)
-          ? item.timesheet_rows
-          : (Array.isArray(item?.timesheetRows) ? item.timesheetRows : []);
+        const rows = this.normalizeTimeSheetRowsFromData(item);
         const totalHours = rows.reduce((sum: number, row: any) => sum + (Number(row?.hours) || 0), 0);
 
         return {
@@ -729,6 +788,108 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         };
       })
       .filter((item: TimesheetListItem) => item.id > 0);
+  }
+
+  private normalizeTimeSheetRowsFromData(data: any): any[] {
+    const explicitRows = Array.isArray(data?.timesheet_rows)
+      ? data.timesheet_rows
+      : (Array.isArray(data?.timesheetRows) ? data.timesheetRows : []);
+    if (explicitRows.length) {
+      return explicitRows;
+    }
+
+    const dayGroups = Array.isArray(data?.timesheet_days)
+      ? data.timesheet_days
+      : (Array.isArray(data?.timesheetDays) ? data.timesheetDays : []);
+    if (!dayGroups.length) {
+      return [];
+    }
+
+    return this.flattenTimesheetDays(dayGroups);
+  }
+
+  private flattenTimesheetDays(dayGroups: any[]): any[] {
+    return dayGroups.flatMap((day: any) => {
+      const dayDate = day?.date ?? this.payPeriodStart;
+      const dayRows = Array.isArray(day?.rows) ? day.rows : [];
+      return dayRows.map((row: any) => ({
+        ...row,
+        date: row?.date ?? dayDate,
+        day_of_week: row?.day_of_week ?? day?.day_of_week ?? this.dayOfWeekLabel(dayDate)
+      }));
+    });
+  }
+
+  private toUiTimeSheetRow(row: any): TimeSheetRow {
+    return {
+      id: this.nextTimeSheetRowId++,
+      date: row?.date ?? this.payPeriodStart,
+      technicianId: Number(row?.technician_id ?? row?.technicianId) || this.getCurrentTechnicianId(),
+      workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
+      payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
+      hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
+      department: row?.department ?? row?.accounting_unit ?? 'Operations',
+      account: row?.account ?? row?.ferc ?? 'None',
+      project: row?.project ?? row?.activity ?? '',
+      comment: row?.comment ?? '',
+      markedForDelete: !!(row?.is_deleted ?? row?.isDeleted),
+      isExtraRow: false,
+      isNewlyAdded: false
+    };
+  }
+
+  private buildTimesheetDaysPayload(rows: Array<{
+    date: string;
+    day_of_week: string;
+    pay_code: string;
+    hours: number;
+    daily_total: number;
+    department: string;
+    account: string;
+    project: string;
+    comment: string;
+    is_deleted: boolean;
+  }>): Array<{
+    date: string;
+    day_of_week: string;
+    daily_total: number;
+    rows: Array<{
+      pay_code: string;
+      hours: number;
+      accounting_unit: string;
+      ferc: string;
+      activity: string;
+      comment: string;
+      is_deleted: boolean;
+    }>;
+  }> {
+    const grouped = new Map<string, typeof rows>();
+    rows.forEach((row) => {
+      const key = String(row.date ?? '');
+      const list = grouped.get(key) ?? [];
+      list.push(row);
+      grouped.set(key, list);
+    });
+
+    return Array.from(grouped.entries())
+      .sort(([a], [b]) => String(a).localeCompare(String(b)))
+      .map(([date, dayRows]) => {
+        const dailyTotal = Number(dayRows.reduce((sum, row) => sum + (Number(row.hours) || 0), 0).toFixed(2));
+        return {
+          date,
+          day_of_week: this.dayOfWeekLabel(date),
+          daily_total: dailyTotal,
+          rows: dayRows.map((row) => ({
+            pay_code: row.pay_code,
+            hours: Number(row.hours) || 0,
+            accounting_unit: row.department || '',
+            ferc: row.account || '',
+            activity: row.project || '',
+            comment: row.comment || '',
+            is_deleted: !!row.is_deleted
+          }))
+        };
+      });
   }
 
   private toTimeSheetViewMode(value: string): TimeSheetViewMode {
@@ -840,7 +1001,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.techniciansLoading = true;
     this.techniciansLoaded = false;
     this.technicianService
-      .fetchTechnicians(this.techPage, this.techSize)
+      .fetchActiveUsers()
       .pipe(
         take(1),
         finalize(() => {
@@ -853,24 +1014,35 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           this.zone.run(() => {
-            const list: any[] = (response as any)?.data?.technicians ?? (response as any)?.data?.content ?? [];
-            this.technicianRows = list.map((tech: any) => ({
-              id: tech.technicianId ?? (tech.id ? `TEC${tech.id}` : '-'),
-              dbId: tech.id,
-              name: this.buildName(tech),
-              phone: tech.phoneNumber ?? '-',
-              email: tech.email ?? '-',
-              team: tech.teamMemberships?.[0]?.teamName || tech.teamName || 'Unassigned',
-              status: this.formatWorkStatus((tech as any)?.workStatus),
-              workingDays: this.formatWorkShift(tech.workShift)
-            }));
-            this.techTotal = response.data?.totalElements ?? list.length;
-            if (typeof response.data?.size === 'number' && response.data.size > 0) {
-              this.techSize = response.data.size;
-            }
-            if (typeof response.data?.page === 'number') {
-              this.techPage = response.data.page;
-            }
+            const list: any[] = Array.isArray((response as any)?.data) ? (response as any).data : [];
+            const role = String(localStorage.getItem('userRole') ?? '').trim().toUpperCase();
+            const nonAdminUsers = list.filter(
+              (user: any) => String(user?.role ?? '').trim().toUpperCase() !== 'ADMIN'
+            );
+            const visibleUsers = role === 'TECHNICIAN'
+              ? nonAdminUsers.filter((user: any) => String(user?.role ?? '').trim().toUpperCase() === 'TECHNICIAN')
+              : nonAdminUsers;
+
+            this.technicianRows = visibleUsers.map((user: any) => {
+              const normalizedRole = String(user?.role ?? '').trim().toUpperCase();
+              const numericId = Number(user?.id);
+              const idSuffix = Number.isFinite(numericId) && numericId > 0
+                ? `${numericId}`.padStart(6, '0')
+                : '000000';
+              return {
+                id: `${normalizedRole === 'TECHNICIAN' ? 'TECH' : 'USR'}-${idSuffix}`,
+                dbId: normalizedRole === 'TECHNICIAN' && Number.isFinite(numericId) && numericId > 0 ? numericId : undefined,
+                name: [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || '-',
+                phone: '-',
+                email: user?.email ?? '-',
+                team: '-',
+                status: user?.active ? 'Available' : 'On leave',
+                workingDays: '-'
+              };
+            });
+            this.techTotal = this.technicianRows.length;
+            this.techPage = 0;
+            this.techSize = Math.max(this.techTotal, 1);
             this.techniciansLoaded = true;
             this.techniciansLoading = false;
             this.cdr.detectChanges();
@@ -1592,6 +1764,79 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.router.navigate(['/login']);
   }
 
+  openInviteTechnician(): void {
+    if (!this.canInviteTechnician) {
+      return;
+    }
+    this.showInviteModal = true;
+    this.inviteSubmitting = false;
+  }
+
+  closeInviteTechnician(): void {
+    if (this.inviteSubmitting) {
+      return;
+    }
+    this.showInviteModal = false;
+    this.resetInviteForm();
+  }
+
+  submitInviteTechnician(): void {
+    if (this.inviteSubmitting) {
+      return;
+    }
+
+    const firstName = String(this.inviteForm.firstName ?? '').trim();
+    const lastName = String(this.inviteForm.lastName ?? '').trim();
+    const email = String(this.inviteForm.email ?? '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!firstName || !lastName || !email || !emailRegex.test(email)) {
+      this.toastr.error('Please provide first name, last name and valid email.');
+      return;
+    }
+
+    this.inviteSubmitting = true;
+    this.userManagementService
+      .inviteUser({
+        firstName,
+        lastName,
+        email
+      })
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.inviteSubmitting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            this.toastr.success(response?.message || 'Invite sent successfully');
+            this.showInviteModal = false;
+            this.resetInviteForm();
+            this.cdr.detectChanges();
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            this.toastr.error(err?.error?.message || 'Failed to send invite');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private resetInviteForm(): void {
+    this.inviteForm = {
+      firstName: '',
+      lastName: '',
+      email: ''
+    };
+  }
+
   toggleMobileMenu(): void {
     this.mobileMenuOpen = !this.mobileMenuOpen;
   }
@@ -1599,6 +1844,17 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   get canViewApprovedTimesheets(): boolean {
     const role = String(localStorage.getItem('userRole') ?? '').trim().toUpperCase();
     return role === 'ADMIN';
+  }
+
+  get isAdminRole(): boolean {
+    const role = String(localStorage.getItem('userRole') ?? '').trim().toUpperCase();
+    return role === 'ADMIN';
+  }
+
+  get canInviteTechnician(): boolean {
+    return this.isAdminRole
+      || this.permissionService.hasPermission('INVITE_USER', 'CREATE')
+      || this.permissionService.hasPermission('INVITE_USER', 'ACCESS');
   }
 
   private get isTechnicianRole(): boolean {

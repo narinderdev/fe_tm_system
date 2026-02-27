@@ -108,27 +108,24 @@
 
         <ng-container *ngSwitchCase="'technicians'">
           <section class="card table-card">
+            <div *ngIf="canInviteTechnician" style="display:flex;justify-content:flex-end;padding:16px 20px;">
+              <button type="button" class="ts-btn ts-btn-ghost" (click)="openInviteTechnician()">+ Invite Technician</button>
+            </div>
             <div class="table-wrapper">
               <table>
                 <thead>
                   <tr>
                     <th>Technician ID</th>
                     <th>Name</th>
-                    <th>Phone</th>
                     <th>Email</th>
-                    <th>Team</th>
                     <th>Status</th>
-                    <th>Shift</th>
-                    <th class="actions-col">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let row of technicianRows">
                     <td class="linkish">{{ row.id }}</td>
                     <td>{{ row.name }}</td>
-                    <td>{{ row.phone }}</td>
                     <td>{{ row.email }}</td>
-                    <td>{{ row.team }}</td>
                     <td>
                       <span class="pill"
                         [ngClass]="{
@@ -138,12 +135,6 @@
                         }">
                         {{ row.status }}
                       </span>
-                    </td>
-                    <td>{{ row.workingDays }}</td>
-                    <td class="actions">
-                      <button class="icon-btn ghost" aria-label="View availability" (click)="openTechnicianAvailability(row.dbId)">
-                        <img src="/assets/icons/Vector.svg" alt="View availability" />
-                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -157,6 +148,36 @@
               </div>
             </div>
           </section>
+
+          <div class="modal-backdrop" *ngIf="showInviteModal" (click)="closeInviteTechnician()">
+            <div class="modal-dialog small" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h3>Invite Technician</h3>
+              </div>
+              <form (ngSubmit)="submitInviteTechnician()" novalidate>
+                <div class="modal-body">
+                  <div class="form-group half">
+                    <label class="form-label">First Name</label>
+                    <input class="form-input" type="text" [(ngModel)]="inviteForm.firstName" name="inviteFirstName" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Last Name</label>
+                    <input class="form-input" type="text" [(ngModel)]="inviteForm.lastName" name="inviteLastName" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input class="form-input" type="email" [(ngModel)]="inviteForm.email" name="inviteEmail" required />
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" type="button" (click)="closeInviteTechnician()" [disabled]="inviteSubmitting">Close</button>
+                  <button class="btn-primary" type="submit" [disabled]="inviteSubmitting">
+                    {{ inviteSubmitting ? 'Sending...' : 'Send Invite' }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </ng-container>
 
         <ng-container *ngSwitchCase="'teams'">
@@ -646,9 +667,31 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of timeSheetRows">
+                    <tr *ngFor="let row of timeSheetRows; let i = index" [class.timesheet-row-added]="row.isNewlyAdded">
                       <td>
-                        <input type="date" [(ngModel)]="row.date" />
+                        <div class="timesheet-date-cell">
+                          <input type="date" [(ngModel)]="row.date" />
+                          <div class="timesheet-row-actions">
+                            <button
+                              *ngIf="shouldShowPlusForRow(row, i)"
+                              type="button"
+                              class="timesheet-add-row-btn"
+                              aria-label="Add row for this date"
+                              title="Add row for this date"
+                              (click)="addTimeSheetRow(row.date, i)">
+                              +
+                            </button>
+                            <button
+                              *ngIf="canDeleteRow(row, i)"
+                              type="button"
+                              class="timesheet-add-row-btn timesheet-delete-row-btn"
+                              aria-label="Delete row"
+                              title="Delete row"
+                              (click)="removeTimeSheetRow(row, i)">
+                              <img src="/assets/icons/delete.svg" alt="Delete row" />
+                            </button>
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <select [(ngModel)]="row.payCode">

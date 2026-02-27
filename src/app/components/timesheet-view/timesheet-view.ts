@@ -255,7 +255,7 @@ export class TimesheetViewComponent implements OnInit {
             const data = response?.data ?? response;
             this.periodStartDate = data?.period_start_date ?? data?.periodStartDate ?? '-';
             this.periodEndDate = data?.period_end_date ?? data?.periodEndDate ?? '-';
-            this.viewType = this.formatLabel(data?.view_type ?? data?.viewType ?? '-');
+            this.viewType = String(data?.view_type ?? data?.viewType ?? '-');
             this.status = String(data?.status ?? '-').trim().toUpperCase();
             this.technicianId = Number(data?.technician_id ?? data?.technicianId) || 1;
             const rawWorked = data?.totalWorked ?? data?.total_worked;
@@ -266,9 +266,7 @@ export class TimesheetViewComponent implements OnInit {
             this.totalNonWorked = Number(rawNonWorked) || 0;
             this.totalPremium = Number(rawPremium) || 0;
 
-            const sourceRows = Array.isArray(data?.timesheet_rows)
-              ? data.timesheet_rows
-              : (Array.isArray(data?.timesheetRows) ? data.timesheetRows : []);
+            const sourceRows = this.normalizeRowsFromTimesheetData(data);
 
             this.rows = sourceRows.map((row: any) => ({
               date: row?.date ?? '-',
@@ -276,9 +274,9 @@ export class TimesheetViewComponent implements OnInit {
               payCode: row?.pay_code ?? row?.payCode ?? '-',
               hours: Number(row?.hours) || 0,
               dailyTotal: Number(row?.daily_total ?? row?.dailyTotal) || 0,
-              department: row?.department ?? '-',
-              account: row?.account ?? '-',
-              project: row?.project ?? '',
+              department: row?.department ?? row?.accounting_unit ?? row?.accountingUnit ?? '-',
+              account: row?.account ?? row?.ferc ?? '-',
+              project: row?.project ?? row?.activity ?? '',
               comment: row?.comment ?? '',
               isDeleted: !!(row?.is_deleted ?? row?.isDeleted)
             }));
@@ -301,7 +299,9 @@ export class TimesheetViewComponent implements OnInit {
 
             if (rawPremium === null || rawPremium === undefined || rawPremium === '') {
               this.totalPremium = this.rows
-                .filter((r) => ['OVERTIME_1_5', 'DOUBLE_TIME', 'HOLIDAY_PAY'].includes((r.payCode || '').toUpperCase()))
+                .filter((r) =>
+                  ['OVERTIME', 'OVERTIME_1_5', 'DOUBLE_TIME', 'HOLIDAY_PAY'].includes((r.payCode || '').toUpperCase())
+                )
                 .reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
             }
             this.cdr.detectChanges();
@@ -315,5 +315,34 @@ export class TimesheetViewComponent implements OnInit {
           });
         }
       });
+  }
+
+  private normalizeRowsFromTimesheetData(data: any): any[] {
+    const explicitRows = Array.isArray(data?.timesheet_rows)
+      ? data.timesheet_rows
+      : (Array.isArray(data?.timesheetRows) ? data.timesheetRows : []);
+    if (explicitRows.length) {
+      return explicitRows;
+    }
+
+    const dayGroups = Array.isArray(data?.timesheet_days)
+      ? data.timesheet_days
+      : (Array.isArray(data?.timesheetDays) ? data.timesheetDays : []);
+    if (!dayGroups.length) {
+      return [];
+    }
+
+    return dayGroups.flatMap((day: any) => {
+      const dayDate = day?.date ?? '-';
+      const dayOfWeek = day?.day_of_week ?? day?.dayOfWeek ?? '-';
+      const dailyTotal = Number(day?.daily_total ?? day?.dailyTotal) || 0;
+      const rows = Array.isArray(day?.rows) ? day.rows : [];
+      return rows.map((row: any) => ({
+        ...row,
+        date: row?.date ?? dayDate,
+        day_of_week: row?.day_of_week ?? row?.dayOfWeek ?? dayOfWeek,
+        daily_total: row?.daily_total ?? row?.dailyTotal ?? dailyTotal
+      }));
+    });
   }
 }

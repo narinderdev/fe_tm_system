@@ -29,8 +29,10 @@ export class AuthTokenInterceptor implements HttpInterceptor {
       url.includes('/auth/mfa/email/send') ||
       url.includes('/auth/mfa/email/verify');
     const isChangePasswordEndpoint = url.includes('/users/change-password');
+    const isSetPasswordEndpoint =
+      url.includes('/users/set-password') || url.includes('/api/invitations/set-password');
 
-    if (isAuthEndpoint) {
+    if (isAuthEndpoint || isSetPasswordEndpoint) {
       return next.handle(req);
     }
 

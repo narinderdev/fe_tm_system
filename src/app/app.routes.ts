@@ -9,6 +9,11 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: 'login', component: LoginComponent },
   { path: 'sign-up', component: SignUpComponent },
+  {
+    path: 'set-password',
+    loadComponent: () =>
+      import('./components/set-password/set-password').then((m) => m.SetPasswordComponent)
+  },
   { path: 'verify-otp', component: VerifyOtpComponent },
   { path: 'dashboard', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
   { path: 'tm-system', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },

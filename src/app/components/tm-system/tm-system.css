@@ -1178,6 +1178,63 @@ td:nth-child(7) {
   background: #f8fbff;
 }
 
+.timesheet-row-added td {
+  animation: timesheet-row-added-flash 1.2s ease;
+}
+
+@keyframes timesheet-row-added-flash {
+  0% {
+    background: #dbeafe;
+  }
+  100% {
+    background: #ffffff;
+  }
+}
+
+.timesheet-date-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timesheet-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timesheet-add-row-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 1px solid #c8d5e6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.timesheet-add-row-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.timesheet-delete-row-btn {
+  padding: 0;
+}
+
+.timesheet-delete-row-btn img {
+  width: 14px;
+  height: 14px;
+  display: block;
+  margin: 0 auto;
+}
+
 .timesheet-table input,
 .timesheet-table select {
   width: 100%;
