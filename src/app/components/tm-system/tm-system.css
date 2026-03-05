@@ -1104,6 +1104,28 @@ td:nth-child(7) {
   gap: 8px;
 }
 
+.timesheet-deadline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+  margin-left: auto;
+}
+
+.timesheet-deadline-label {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.timesheet-deadline-date {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
+}
+
 .ts-btn {
   border: 1px solid transparent;
   border-radius: 10px;
@@ -1145,7 +1167,7 @@ td:nth-child(7) {
 }
 
 .timesheet-table {
-  min-width: 1120px;
+  min-width: 1460px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -1165,6 +1187,10 @@ td:nth-child(7) {
 
 .timesheet-table th:last-child {
   border-top-right-radius: 12px;
+}
+
+.timesheet-table .timesheet-comment-col {
+  min-width: 460px;
 }
 
 .timesheet-table td {
@@ -1267,6 +1293,21 @@ td:nth-child(7) {
   height: 18px;
   accent-color: #3b82f6;
   box-shadow: none;
+}
+
+.timesheet-table input[type='number']::-webkit-outer-spin-button,
+.timesheet-table input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.timesheet-table input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.timesheet-comment-input {
+  min-width: 420px;
 }
 
 .delete-cell {

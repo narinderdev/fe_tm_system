@@ -321,6 +321,7 @@ export interface WorkOrderDetailResponse {
 export class WorkOrderService {
   private readonly apiUrl = `${environment.apiUrl}/api/work-orders`;
   private readonly workOrderTypesUrl = `${environment.apiUrl}/api/work-order-types`;
+  private readonly workRequestTypesUrl = `${environment.apiUrl}/api/work-request-types`;
 
   constructor(private http: HttpClient) {}
 
@@ -423,6 +424,26 @@ export class WorkOrderService {
       params,
       headers
     });
+  }
+
+  fetchGlAccounts(page = 0, size = 100): Observable<any> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/gl-accounts`, { params, headers });
+  }
+
+  fetchPropertyUnits(page = 0, size = 100): Observable<any> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.workRequestTypesUrl}/property-units`, { params, headers });
   }
 
   fetchWorkOrderById(id: string): Observable<WorkOrderDetailResponse> {
@@ -556,6 +577,14 @@ export class WorkOrderService {
       'ngrok-skip-browser-warning': 'true'
     });
     return this.http.post<WorkOrderDetailResponse>(`${this.apiUrl}/${id}/team/resume`, {}, { headers });
+  }
+
+  markWorkOrderFavourite(id: number | string, technicianId: number): Observable<unknown> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    const params = new HttpParams().set('technicianId', technicianId.toString());
+    return this.http.post(`${this.apiUrl}/${id}/favourites`, {}, { headers, params });
   }
 }
 
