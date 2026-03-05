@@ -53,7 +53,11 @@ describe('TmSystemComponent (technician/team CRUD)', () => {
   };
 
   const workOrderServiceMock = {
-    fetchWorkOrders: vi.fn().mockReturnValue(of({ data: { workOrders: [] } }))
+    fetchWorkOrders: vi.fn().mockReturnValue(of({ data: { workOrders: [] } })),
+    fetchWorkOrdersForTechnician: vi.fn().mockReturnValue(of({ data: { workOrders: [] } })),
+    markWorkOrderFavourite: vi.fn().mockReturnValue(of({})),
+    fetchGlAccounts: vi.fn().mockReturnValue(of({ data: [] })),
+    fetchPropertyUnits: vi.fn().mockReturnValue(of({ data: [] }))
   };
 
   const dashboardServiceMock = {

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef, NgZone, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -56,6 +56,12 @@ interface TimeSheetRow {
   markedForDelete: boolean;
   isExtraRow: boolean;
   isNewlyAdded: boolean;
+}
+
+interface WorkOrderProjectOption {
+  id: number;
+  name: string;
+  isFavourite: boolean;
 }
 
 type TimeSheetViewMode = 'WEEK' | 'BY_WEEK';
@@ -305,6 +311,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   timesheetSubmitting = false;
   editingTimesheetId?: number;
   timeSheetEditLoading = false;
+  timeSheetProjectOptions: WorkOrderProjectOption[] = [];
+  timeSheetProjectOptionsLoading = false;
+  timeSheetDepartmentOptions: string[] = [];
+  timeSheetDepartmentLoading = false;
+  timeSheetGlAccountOptions: string[] = [];
+  timeSheetGlAccountLoading = false;
+  openProjectDropdownRowId?: number;
+  private readonly favouritingWorkOrderIds = new Set<number>();
 
   readonly timeSheetPayCodes: TimeSheetPayCode[] = [
     { value: 'REGULAR', label: 'Regular', type: 'worked' },
@@ -398,6 +412,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   private initializeTimeSheet(): void {
     this.timeSheetScreenMode = 'list';
+    this.openProjectDropdownRowId = undefined;
     this.loadTimesheetList();
 
     if (!this.timeSheetReady) {
@@ -408,12 +423,16 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   openTimeSheetCreate(): void {
     this.editingTimesheetId = undefined;
+    this.openProjectDropdownRowId = undefined;
     if (!this.timeSheetReady) {
       this.setPayPeriod(0);
       this.timeSheetReady = true;
     } else {
       this.setPayPeriod(this.currentPeriodOffset);
     }
+    this.loadTimeSheetProjectOptions();
+    this.loadTimeSheetDepartmentOptions();
+    this.loadTimeSheetGlAccountOptions();
     this.timeSheetScreenMode = 'create';
   }
 
@@ -515,6 +534,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             }
 
             this.editingTimesheetId = id;
+            this.loadTimeSheetProjectOptions();
+            this.loadTimeSheetDepartmentOptions();
+            this.loadTimeSheetGlAccountOptions();
             this.timeSheetScreenMode = 'create';
             this.cdr.detectChanges();
           });
@@ -539,6 +561,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
     const end = new Date(start);
     end.setDate(start.getDate() + (periodDays - 1));
+    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    monthEnd.setHours(0, 0, 0, 0);
+
+    if (end > monthEnd) {
+      end.setTime(monthEnd.getTime());
+    }
 
     this.currentPeriodOffset = offsetPeriods;
     this.payPeriodStart = this.toIsoDate(start);
@@ -559,6 +587,70 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.setPayPeriod(0);
   }
 
+  toggleProjectDropdown(rowId: number, event: MouseEvent): void {
+    event.stopPropagation();
+    this.openProjectDropdownRowId = this.openProjectDropdownRowId === rowId ? undefined : rowId;
+    if (!this.timeSheetProjectOptions.length) {
+      this.loadTimeSheetProjectOptions();
+    }
+  }
+
+  selectProjectOption(row: TimeSheetRow, option: WorkOrderProjectOption): void {
+    row.project = option.name;
+    row.workOrderId = option.id;
+    this.openProjectDropdownRowId = undefined;
+  }
+
+  markProjectAsFavourite(option: WorkOrderProjectOption, event: MouseEvent): void {
+    event.stopPropagation();
+    if (!option.id || option.isFavourite || this.favouritingWorkOrderIds.has(option.id)) {
+      return;
+    }
+
+    const technicianId = this.getCurrentTechnicianId();
+    if (!technicianId) {
+      this.toastr.error('Technician id is required to mark favourite.');
+      return;
+    }
+
+    this.favouritingWorkOrderIds.add(option.id);
+    this.workOrderService
+      .markWorkOrderFavourite(option.id, technicianId)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.favouritingWorkOrderIds.delete(option.id);
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            option.isFavourite = true;
+            this.toastr.success('Project marked as favourite.');
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.toastr.error('Failed to mark project as favourite.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  isProjectFavouriteSaving(optionId: number): boolean {
+    return this.favouritingWorkOrderIds.has(optionId);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.openProjectDropdownRowId = undefined;
+  }
+
   addTimeSheetRow(date?: string, insertAfterIndex?: number): void {
     const nextRow: TimeSheetRow = {
       id: this.nextTimeSheetRowId++,
@@ -567,8 +659,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       workOrderId: 0,
       payCode: 'REGULAR',
       hours: null,
-      department: 'Operations',
-      account: 'None',
+      department: '',
+      account: '',
       project: '',
       comment: '',
       markedForDelete: false,
@@ -664,6 +756,35 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       month: 'short',
       year: 'numeric'
     });
+  }
+
+  formatCompactDate(value: string): string {
+    if (!value) {
+      return '-';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+
+  get submissionDeadlineDate(): string {
+    const referenceValue = this.payPeriodEnd || this.payPeriodStart;
+    if (!referenceValue) {
+      return '';
+    }
+    const referenceDate = new Date(referenceValue);
+    if (Number.isNaN(referenceDate.getTime())) {
+      return '';
+    }
+    const deadline = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 2);
+    deadline.setHours(0, 0, 0, 0);
+    return this.toIsoDate(deadline);
   }
 
   onHoursInput(row: TimeSheetRow, value: string): void {
@@ -792,8 +913,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         workOrderId: 0,
         payCode: 'REGULAR',
         hours: null,
-        department: 'Operations',
-        account: 'None',
+        department: '',
+        account: '',
       project: '',
       comment: '',
       markedForDelete: false,
@@ -803,6 +924,193 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       cursor.setDate(cursor.getDate() + 1);
     }
     this.timeSheetRows = rows;
+  }
+
+  private loadTimeSheetProjectOptions(): void {
+    if (this.timeSheetProjectOptionsLoading) {
+      return;
+    }
+
+    this.timeSheetProjectOptionsLoading = true;
+    const technicianId = this.getCurrentTechnicianId();
+    const request$ =
+      this.isTechnicianRole && technicianId > 0
+        ? this.workOrderService.fetchWorkOrdersForTechnician(technicianId, 0, 200)
+        : this.workOrderService.fetchWorkOrders(0, 200);
+
+    request$
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timeSheetProjectOptionsLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            this.timeSheetProjectOptions = this.normalizeProjectOptions(response);
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.timeSheetProjectOptions = [];
+            this.toastr.error('Failed to load project options.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private loadTimeSheetGlAccountOptions(): void {
+    if (this.timeSheetGlAccountLoading) {
+      return;
+    }
+
+    this.timeSheetGlAccountLoading = true;
+    this.workOrderService
+      .fetchGlAccounts(0, 100)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timeSheetGlAccountLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            this.timeSheetGlAccountOptions = this.normalizeGlAccountOptions(response);
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.timeSheetGlAccountOptions = [];
+            this.toastr.error('Failed to load GL account options.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private loadTimeSheetDepartmentOptions(): void {
+    if (this.timeSheetDepartmentLoading) {
+      return;
+    }
+
+    this.timeSheetDepartmentLoading = true;
+    this.workOrderService
+      .fetchPropertyUnits(0, 100)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timeSheetDepartmentLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            this.timeSheetDepartmentOptions = this.normalizeDepartmentOptions(response);
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.timeSheetDepartmentOptions = [];
+            this.toastr.error('Failed to load department options.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private normalizeDepartmentOptions(response: any): string[] {
+    const data = response?.data ?? response;
+    const source = Array.isArray(data)
+      ? data
+      : (Array.isArray(data?.content)
+        ? data.content
+        : (Array.isArray(data?.items)
+          ? data.items
+          : (Array.isArray(data?.propertyUnits)
+            ? data.propertyUnits
+            : [])));
+
+    const values = source
+      .map((item: any) => {
+        if (typeof item === 'string') {
+          return item.trim();
+        }
+        return String(item?.propertyUnit ?? item?.name ?? item?.unit ?? item?.value ?? '').trim();
+      })
+      .filter((value: string) => !!value);
+
+    return Array.from(new Set<string>(values));
+  }
+
+  private normalizeGlAccountOptions(response: any): string[] {
+    const data = response?.data ?? response;
+    const source = Array.isArray(data)
+      ? data
+      : (Array.isArray(data?.content)
+        ? data.content
+        : (Array.isArray(data?.items)
+          ? data.items
+          : (Array.isArray(data?.glAccounts)
+            ? data.glAccounts
+            : [])));
+
+    const values = source
+      .map((item: any) => {
+        if (typeof item === 'string') {
+          return item.trim();
+        }
+        return String(item?.glAccount ?? item?.name ?? item?.account ?? item?.value ?? '').trim();
+      })
+      .filter((value: string) => !!value);
+
+    return Array.from(new Set<string>(values));
+  }
+
+  private normalizeProjectOptions(response: any): WorkOrderProjectOption[] {
+    const source = Array.isArray(response?.data?.workOrders)
+      ? response.data.workOrders
+      : (Array.isArray(response?.data?.content)
+        ? response.data.content
+        : (Array.isArray(response?.workOrders)
+          ? response.workOrders
+          : []));
+
+    const byId = new Map<number, WorkOrderProjectOption>();
+    source.forEach((item: any) => {
+      const id = Number(item?.id ?? item?.workOrderDbId ?? item?.work_order_id);
+      if (!Number.isFinite(id) || id <= 0) {
+        return;
+      }
+      if (byId.has(id)) {
+        return;
+      }
+      const name =
+        String(item?.woTitle ?? item?.name ?? item?.project ?? item?.workOrderId ?? item?.assetName ?? '').trim()
+        || `Work Order #${id}`;
+      const isFavourite = !!(item?.isFavourite ?? item?.isFavorite ?? item?.favourite ?? item?.favorite);
+      byId.set(id, {
+        id,
+        name,
+        isFavourite
+      });
+    });
+
+    return Array.from(byId.values());
   }
 
   private dayOfWeekLabel(value: string): string {
@@ -928,8 +1236,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
       payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
       hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
-      department: row?.department ?? row?.accounting_unit ?? 'Operations',
-      account: row?.account ?? row?.ferc ?? 'None',
+      department: row?.department ?? row?.accounting_unit ?? '',
+      account: row?.account ?? row?.ferc ?? '',
       project: row?.project ?? row?.activity ?? '',
       comment: row?.comment ?? '',
       markedForDelete: !!(row?.is_deleted ?? row?.isDeleted),

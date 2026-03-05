@@ -64,7 +64,11 @@ describe('TmSystemComponent (TM data tabs)', () => {
           page: 0
         }
       })
-    )
+    ),
+    fetchWorkOrdersForTechnician: vi.fn().mockReturnValue(of({ data: { workOrders: [] } })),
+    markWorkOrderFavourite: vi.fn().mockReturnValue(of({})),
+    fetchGlAccounts: vi.fn().mockReturnValue(of({ data: [] })),
+    fetchPropertyUnits: vi.fn().mockReturnValue(of({ data: [] }))
   };
 
   const dashboardServiceMock = {
