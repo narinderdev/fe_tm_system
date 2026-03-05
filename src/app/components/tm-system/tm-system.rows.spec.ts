@@ -16,20 +16,23 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 describe('TmSystemComponent (TM data tabs)', () => {
   const technicianServiceMock = {
-    fetchActiveUsers: vi.fn().mockReturnValue(
+    fetchTechnicians: vi.fn().mockReturnValue(
       of({
-        data: [
-          { id: 1, firstName: 'Admin', lastName: 'User', email: 'admin@test.com', role: 'Admin', active: true },
-          { id: 2, firstName: 'Tech', lastName: 'User', email: 'tech@test.com', role: 'Technician', active: true }
-        ]
+        data: {
+          technicians: [
+            { id: 2, technicianId: 'TECH-000002', firstName: 'Tech', lastName: 'User', email: 'tech@test.com', technicianType: 'TECHNICIAN', address: 'Plant 1', status: 'AVAILABLE' }
+          ],
+          totalElements: 1,
+          size: 10,
+          page: 0
+        }
       })
     ),
-    fetchTechnicians: vi.fn().mockReturnValue(of({ data: { technicians: [] } })),
     fetchTechnicianTeams: vi.fn().mockReturnValue(
       of({
         data: {
           teams: [
-            { id: 1, teamName: 'Team A', teamLeaderName: 'Lead', technicians: [{}, {}] }
+            { id: 1, teamName: 'Team A', teamLeaderName: 'Lead', status: 'ACTIVE', teamLeaderId: 2, technicians: [{ id: 2 }, { id: 3 }] }
           ],
           totalElements: 1,
           size: 10,
@@ -126,6 +129,7 @@ describe('TmSystemComponent (TM data tabs)', () => {
     expect(technicianServiceMock.fetchTechnicianTeams).toHaveBeenCalled();
     expect(comp.teamRows.length).toBe(1);
     expect(comp.teamRows[0].name).toBe('Team A');
+    expect(comp.teamRows[0].status).toBe('Active');
   });
 
   it('loads work-orders tab data', () => {
@@ -142,19 +146,12 @@ describe('TmSystemComponent (TM data tabs)', () => {
     expect(comp.holidayRows[0].name).toBe('Test Holiday');
   });
 
-  it('filters technician list to technician role for technician login', () => {
-    localStorage.setItem('userRole', 'TECHNICIAN');
+  it('loads technician list from technicians endpoint', () => {
     const comp = createComponentWithTab('technicians');
-    expect(technicianServiceMock.fetchActiveUsers).toHaveBeenCalled();
+    expect(technicianServiceMock.fetchTechnicians).toHaveBeenCalled();
     expect(comp.technicianRows.length).toBe(1);
     expect(comp.technicianRows[0].email).toBe('tech@test.com');
-  });
-
-  it('hides admin-role users in technician list for admin login', () => {
-    localStorage.setItem('userRole', 'ADMIN');
-    const comp = createComponentWithTab('technicians');
-    expect(technicianServiceMock.fetchActiveUsers).toHaveBeenCalled();
-    expect(comp.technicianRows.length).toBe(1);
-    expect(comp.technicianRows[0].email).toBe('tech@test.com');
+    expect(comp.technicianRows[0].role).toBe('Technician');
+    expect(comp.technicianRows[0].location).toBe('Plant 1');
   });
 });

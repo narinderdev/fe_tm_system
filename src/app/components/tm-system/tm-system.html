@@ -108,33 +108,47 @@
 
         <ng-container *ngSwitchCase="'technicians'">
           <section class="card table-card">
-            <div *ngIf="canInviteTechnician" style="display:flex;justify-content:flex-end;padding:16px 20px;">
-              <button type="button" class="ts-btn ts-btn-ghost" (click)="openInviteTechnician()">+ Invite Technician</button>
+            <div style="display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;">
+              <button type="button" class="ts-btn ts-btn-primary" (click)="goToTechnicianCreate()">+ Invite Technician</button>
             </div>
             <div class="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>Technician ID</th>
                     <th>Name</th>
-                    <th>Email</th>
-                    <th>Status</th>
+                    <th>Role</th>
+                    <th>Team</th>
+                    <th>Location</th>
+                    <th>Availability</th>
+                    <th class="actions-col">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let row of technicianRows">
-                    <td class="linkish">{{ row.id }}</td>
                     <td>{{ row.name }}</td>
-                    <td>{{ row.email }}</td>
+                    <td>{{ row.role }}</td>
+                    <td>{{ row.team }}</td>
+                    <td>{{ row.location }}</td>
                     <td>
                       <span class="pill"
                         [ngClass]="{
-                          'pill-green': row.status === 'Available',
-                          'pill-amber': row.status === 'Working',
-                          'pill-red': row.status === 'On leave'
+                          'pill-green': row.availability === 'Available',
+                          'pill-amber': row.availability === 'Working',
+                          'pill-red': row.availability === 'On leave'
                         }">
-                        {{ row.status }}
+                        {{ row.availability }}
                       </span>
+                    </td>
+                    <td class="actions">
+                      <button class="icon-btn ghost" aria-label="View" (click)="openTechnicianView(row)">
+                        <img src="/assets/icons/Vector.svg" alt="View" />
+                      </button>
+                      <button class="icon-btn ghost" aria-label="Edit" (click)="goToTechnicianEdit(row)">
+                        <img src="/assets/icons/edit.svg" alt="Edit" />
+                      </button>
+                      <button class="icon-btn ghost" aria-label="Delete" (click)="openTechnicianDelete(row)">
+                        <img src="/assets/icons/delete.svg" alt="Delete" />
+                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -158,19 +172,43 @@
                 <div class="modal-body">
                   <div class="form-group half">
                     <label class="form-label">First Name</label>
-                    <input class="form-input" type="text" [(ngModel)]="inviteForm.firstName" name="inviteFirstName" required />
+                    <input
+                      class="form-input"
+                      type="text"
+                      [(ngModel)]="inviteForm.firstName"
+                      name="inviteFirstName"
+                      placeholder="John"
+                      [disabled]="inviteSubmitting"
+                      required
+                    />
                   </div>
                   <div class="form-group half">
                     <label class="form-label">Last Name</label>
-                    <input class="form-input" type="text" [(ngModel)]="inviteForm.lastName" name="inviteLastName" required />
+                    <input
+                      class="form-input"
+                      type="text"
+                      [(ngModel)]="inviteForm.lastName"
+                      name="inviteLastName"
+                      placeholder="Doe"
+                      [disabled]="inviteSubmitting"
+                      required
+                    />
                   </div>
                   <div class="form-group">
                     <label class="form-label">Email</label>
-                    <input class="form-input" type="email" [(ngModel)]="inviteForm.email" name="inviteEmail" required />
+                    <input
+                      class="form-input"
+                      type="email"
+                      [(ngModel)]="inviteForm.email"
+                      name="inviteEmail"
+                      placeholder="john.doe@example.com"
+                      [disabled]="inviteSubmitting"
+                      required
+                    />
                   </div>
                 </div>
                 <div class="modal-footer">
-                  <button class="btn-secondary" type="button" (click)="closeInviteTechnician()" [disabled]="inviteSubmitting">Close</button>
+                  <button class="btn-secondary" type="button" (click)="closeInviteTechnician()" [disabled]="inviteSubmitting">Cancel</button>
                   <button class="btn-primary" type="submit" [disabled]="inviteSubmitting">
                     {{ inviteSubmitting ? 'Sending...' : 'Send Invite' }}
                   </button>
@@ -178,30 +216,170 @@
               </form>
             </div>
           </div>
+
+          <div class="modal-backdrop" *ngIf="showTechnicianModal" (click)="closeTechnicianModal()">
+            <div class="modal-dialog small" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h3>{{ editingTechnicianId ? 'Edit Technician' : 'Add Technician' }}</h3>
+              </div>
+              <form (ngSubmit)="submitTechnician()" novalidate>
+                <div class="modal-body">
+                  <div class="form-group half">
+                    <label class="form-label">Technician ID</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.technicianId" name="techTechnicianId" placeholder="Enter Technician ID" [disabled]="technicianForm.autoGenerateTechnicianId" />
+                  </div>
+                  <div class="form-group half" style="display:flex;align-items:flex-end;">
+                    <label class="form-label" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
+                      <input type="checkbox" [(ngModel)]="technicianForm.autoGenerateTechnicianId" name="techAutoGenerate" (ngModelChange)="onAutoGenerateTechnicianIdChange()" />
+                      Auto-generate
+                    </label>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Badge Number</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.badgeNumber" name="techBadgeNumber" placeholder="Badge #" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">First Name</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.firstName" name="techFirstName" placeholder="John" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Last Name</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.lastName" name="techLastName" placeholder="Smith" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Technician Type</label>
+                    <select class="form-input" [(ngModel)]="technicianForm.technicianType" name="techType" required>
+                      <option value="">Select Technician Type</option>
+                      <option value="TECHNICIAN">Technician</option>
+                      <option value="ELECTRICAL">Electrical</option>
+                      <option value="MECHANICAL">Mechanical</option>
+                    </select>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Phone Number</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.phoneNumber" name="techPhoneNumber" placeholder="+1 (555) 123-4567" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input class="form-input" type="email" [(ngModel)]="technicianForm.email" name="techEmail" placeholder="john.smith@example.com" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" [(ngModel)]="technicianForm.status" name="techStatus" required>
+                      <option value="">Select Status</option>
+                      <option value="AVAILABLE">Available</option>
+                      <option value="WORKING">Working</option>
+                      <option value="ON_LEAVE">On Leave</option>
+                    </select>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Skills</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.skills" name="techSkills" placeholder="e.g. HVAC, Electrical" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Certifications</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.certifications" name="techCertifications" placeholder="e.g. Safety, EPA" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Address</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.address" name="techAddress" placeholder="123 Main St, City, Country" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Start Date</label>
+                    <input class="form-input" type="date" [(ngModel)]="technicianForm.hireDate" name="techHireDate" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Work Shift</label>
+                    <select class="form-input" [(ngModel)]="technicianForm.workShift" name="techWorkShift" required>
+                      <option value="">Select Work Shift</option>
+                      <option value="DAY">Day Shift</option>
+                      <option value="NIGHT">Night Shift</option>
+                    </select>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Description(optional)</label>
+                    <input class="form-input" type="text" [(ngModel)]="technicianForm.notes" name="techNotes" placeholder="Add description" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Certificate Issue Date</label>
+                    <input class="form-input" type="date" [(ngModel)]="technicianForm.certificateIssueDate" name="techCertIssueDate" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Certificate Expiry Date</label>
+                    <input class="form-input" type="date" [(ngModel)]="technicianForm.certificateExpiryDate" name="techCertExpiryDate" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Technician Photo</label>
+                    <input class="form-input" type="file" name="techPhoto" (change)="onTechnicianFileSelected($event, 'technicianPhotoUrl')" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Certificate Upload</label>
+                    <input class="form-input" type="file" name="techCertificate" (change)="onTechnicianFileSelected($event, 'certificateUrl')" />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Team</label>
+                    <select class="form-input" [(ngModel)]="technicianForm.teamId" name="techTeam">
+                      <option [ngValue]="null">Unassigned</option>
+                      <option *ngFor="let team of teamRows" [ngValue]="team.dbId">{{ team.name }}</option>
+                    </select>
+                  </div>
+                  <div class="modal-error" *ngIf="technicianError">{{ technicianError }}</div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" type="button" (click)="closeTechnicianModal()" [disabled]="technicianSubmitting">Close</button>
+                  <button class="btn-primary" type="submit" [disabled]="technicianSubmitting">
+                    {{ technicianSubmitting ? 'Saving...' : (editingTechnicianId ? 'Update Technician' : 'Save Technician') }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <app-delete-modal
+            [isOpen]="showTechnicianDeleteModal"
+            [deleting]="technicianDeleting"
+            title="Delete Technician"
+            message="Are you sure you want to delete this technician?"
+            (cancel)="closeTechnicianDelete()"
+            (confirm)="confirmTechnicianDelete()"
+          ></app-delete-modal>
         </ng-container>
 
         <ng-container *ngSwitchCase="'teams'">
           <section class="card table-card">
+            <div style="display:flex;justify-content:flex-end;padding:16px 20px;">
+              <button type="button" class="ts-btn ts-btn-primary" (click)="openTeamModal()">+ Create Team</button>
+            </div>
             <div class="table-wrapper">
               <table>
                 <thead>
                   <tr>
-                    <th>Team ID</th>
                     <th>Team Name</th>
                     <th>Availability</th>
                     <th>Team Leader</th>
-                    <th>Total Technicians</th>
-                    <th>Active Work Orders</th>
+                    <th>Technicians</th>
+                    <th>Status</th>
+                    <th class="actions-col">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let row of teamRows">
-                    <td class="linkish">{{ row.id }}</td>
                     <td>{{ row.name }}</td>
                     <td>{{ row.availability }}</td>
                     <td>{{ row.leader }}</td>
                     <td><span class="badge badge-blue">{{ row.total }}</span></td>
-                    <td><span class="badge badge-purple">{{ row.activeWos }}</span></td>
+                    <td>{{ row.status }}</td>
+                    <td class="actions">
+                      <button class="icon-btn ghost" aria-label="View" (click)="openTeamView(row)">
+                        <img src="/assets/icons/Vector.svg" alt="View" />
+                      </button>
+                      <button class="icon-btn ghost" aria-label="Edit" (click)="openTeamEdit(row)">
+                        <img src="/assets/icons/edit.svg" alt="Edit" />
+                      </button>
+                      <button class="icon-btn ghost" aria-label="Delete" (click)="openTeamDelete(row)">
+                        <img src="/assets/icons/delete.svg" alt="Delete" />
+                      </button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -214,6 +392,80 @@
               </div>
             </div>
           </section>
+
+          <div class="modal-backdrop" *ngIf="showTeamModal" (click)="closeTeamModal()">
+            <div class="modal-dialog small" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h3>{{ editingTeamId ? 'Edit Team' : 'Create Team' }}</h3>
+              </div>
+              <form (ngSubmit)="submitTeam()" novalidate>
+                <div class="modal-body">
+                  <div class="form-group">
+                    <label class="form-label">Team Name</label>
+                    <input class="form-input" type="text" [(ngModel)]="teamForm.teamName" name="teamName" required />
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" [(ngModel)]="teamForm.status" name="teamStatus" required>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                  </div>
+                  <div class="form-group half">
+                    <label class="form-label">Availability</label>
+                    <input class="form-input" [value]="teamForm.status === 'ACTIVE' ? 'Available' : 'Unavailable'" disabled />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Technicians</label>
+                    <select class="form-input" multiple [ngModel]="teamForm.technicianIds" name="teamTechnicians" (ngModelChange)="onTeamTechniciansChange($event)">
+                      <option *ngFor="let tech of technicianOptions" [ngValue]="tech.id">{{ tech.name }}</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Team Leader</label>
+                    <select class="form-input" [(ngModel)]="teamForm.teamLeaderId" name="teamLeaderId" required>
+                      <option [ngValue]="null">Select leader</option>
+                      <option *ngFor="let opt of selectableLeaderOptions" [ngValue]="opt.id">{{ opt.name }}</option>
+                    </select>
+                  </div>
+                  <div class="modal-error" *ngIf="teamError">{{ teamError }}</div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" type="button" (click)="closeTeamModal()" [disabled]="teamSubmitting">Close</button>
+                  <button class="btn-primary" type="submit" [disabled]="teamSubmitting">
+                    {{ teamSubmitting ? 'Saving...' : (editingTeamId ? 'Update Team' : 'Create Team') }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="modal-backdrop" *ngIf="showTeamDetailModal" (click)="closeTeamView()">
+            <div class="modal-dialog small" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h3>Team Details</h3>
+              </div>
+              <div class="modal-body">
+                <div class="form-group half"><label class="form-label">Team Name</label><input class="form-input" [value]="selectedTeam?.name || '-'" disabled /></div>
+                <div class="form-group half"><label class="form-label">Availability</label><input class="form-input" [value]="selectedTeam?.availability || '-'" disabled /></div>
+                <div class="form-group half"><label class="form-label">Team Leader</label><input class="form-input" [value]="selectedTeam?.leader || '-'" disabled /></div>
+                <div class="form-group half"><label class="form-label">Status</label><input class="form-input" [value]="selectedTeam?.status || '-'" disabled /></div>
+                <div class="form-group"><label class="form-label">Technicians</label><input class="form-input" [value]="selectedTeam?.total || 0" disabled /></div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn-primary" type="button" (click)="closeTeamView()">Close</button>
+              </div>
+            </div>
+          </div>
+
+          <app-delete-modal
+            [isOpen]="showTeamDeleteModal"
+            [deleting]="teamDeleting"
+            title="Delete Team"
+            message="Are you sure you want to delete this team?"
+            (cancel)="closeTeamDelete()"
+            (confirm)="confirmTeamDelete()"
+          ></app-delete-modal>
         </ng-container>
 
         <ng-container *ngSwitchCase="'work-orders'">
@@ -660,6 +912,7 @@
                       <th>Date</th>
                       <th>Pay Code</th>
                       <th>Hours</th>
+                      <th>Total</th>
                       <th>Department</th>
                       <th>Account</th>
                       <th>Project</th>
@@ -700,6 +953,9 @@
                       </td>
                       <td>
                         <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
+                      </td>
+                      <td class="timesheet-day-total">
+                        {{ getDailyTotalHours(row.date) | number:'1.0-2' }} hrs
                       </td>
                       <td>
                         <select [(ngModel)]="row.department">

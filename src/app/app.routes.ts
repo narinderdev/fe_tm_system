@@ -18,6 +18,30 @@ export const routes: Routes = [
   { path: 'dashboard', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
   { path: 'tm-system', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
   {
+    path: 'tm-system/technicians/add',
+    loadComponent: () =>
+      import('./components/technician-form/technician-form').then((m) => m.TechnicianFormComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'tm-system/technicians/edit/:id',
+    loadComponent: () =>
+      import('./components/technician-form/technician-form').then((m) => m.TechnicianFormComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'technicians/add',
+    loadComponent: () =>
+      import('./components/technician-form/technician-form').then((m) => m.TechnicianFormComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'technicians/edit/:id',
+    loadComponent: () =>
+      import('./components/technician-form/technician-form').then((m) => m.TechnicianFormComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'tm-system/time-sheet/:id',
     loadComponent: () =>
       import('./components/timesheet-view/timesheet-view').then((m) => m.TimesheetViewComponent),
@@ -39,6 +63,12 @@ export const routes: Routes = [
     path: 'tm-system/holidays/:id',
     loadComponent: () =>
       import('./components/view-holiday/view-holiday').then((m) => m.ViewHolidayComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'tm-system/technicians/:id',
+    loadComponent: () =>
+      import('./components/view-technician/view-technician').then((m) => m.ViewTechnicianComponent),
     canActivate: [AuthGuard]
   },
   {

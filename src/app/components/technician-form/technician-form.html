@@ -1,0 +1,145 @@
+<div class="form-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <h2>Technician Panel</h2>
+      <span>Management System</span>
+    </div>
+    <nav>
+      <a routerLink="/tm-system/dashboard">Dashboard</a>
+      <a routerLink="/tm-system/technicians" class="active">Technician List</a>
+      <a routerLink="/tm-system/teams">Teams</a>
+      <a routerLink="/tm-system/work-orders">Work Orders</a>
+      <a routerLink="/tm-system/leaves">PTO & Holidays</a>
+      <a routerLink="/tm-system/time-sheet">Time Sheet</a>
+    </nav>
+    <button type="button" class="signout" (click)="signOut()">Sign Out</button>
+  </aside>
+
+  <main class="content">
+    <div class="tech-form-page">
+      <app-loader [visible]="loading"></app-loader>
+
+      <div class="header-row">
+        <button type="button" class="back-btn" (click)="cancel()">&larr;</button>
+        <h2>{{ title }}</h2>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="grid">
+          <div class="field">
+            <label>First Name</label>
+            <input type="text" placeholder="First name" formControlName="firstName" />
+            <small class="error" *ngIf="form.get('firstName')?.touched && form.get('firstName')?.invalid">First name is required.</small>
+          </div>
+
+          <div class="field">
+            <label>Last Name</label>
+            <input type="text" placeholder="Last name" formControlName="lastName" />
+            <small class="error" *ngIf="form.get('lastName')?.touched && form.get('lastName')?.invalid">Last name is required.</small>
+          </div>
+
+      <div class="field">
+        <label>Technician Type</label>
+        <select formControlName="technicianType" (change)="onTechnicianTypeChange()">
+          <option value="">Select technician type</option>
+          <option *ngFor="let option of roleOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
+        <small class="error" *ngIf="form.get('technicianType')?.touched && form.get('technicianType')?.invalid">Technician type is required.</small>
+      </div>
+
+      <div class="field">
+        <label>Location</label>
+        <input type="text" placeholder="Enter location" formControlName="address" />
+        <small class="error" *ngIf="form.get('address')?.touched && form.get('address')?.invalid">Location is required.</small>
+      </div>
+
+      <div class="field">
+        <label>Availability</label>
+        <select formControlName="status">
+          <option value="">Select status</option>
+          <option *ngFor="let option of statusOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
+        <small class="error" *ngIf="form.get('status')?.touched && form.get('status')?.invalid">Availability is required.</small>
+      </div>
+
+      <div class="field">
+        <label>Technician ID</label>
+        <input type="text" placeholder="Enter Technician ID" formControlName="technicianIdCode" />
+      </div>
+
+      <div class="field">
+        <label>Badge Number</label>
+        <input type="text" placeholder="Badge #" formControlName="badgeNumber" />
+      </div>
+
+      <div class="field">
+        <label>Phone Number</label>
+        <input type="text" placeholder="+1 (555) 123-4567" formControlName="phoneNumber" />
+      </div>
+
+      <div class="field">
+        <label>Email</label>
+        <input type="email" placeholder="john.smith@example.com" formControlName="email" />
+      </div>
+
+      <div class="field">
+        <label>Skills</label>
+        <input type="text" placeholder="e.g. HVAC, Electrical" formControlName="skills" />
+      </div>
+
+      <div class="field">
+        <label>Certifications</label>
+        <input type="text" placeholder="e.g. Safety, EPA" formControlName="certifications" />
+      </div>
+
+      <div class="field">
+        <label>Start Date</label>
+        <input type="date" formControlName="hireDate" />
+      </div>
+
+      <div class="field">
+        <label>Work Shift</label>
+        <select formControlName="workShift">
+          <option *ngFor="let option of shiftOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Description (optional)</label>
+        <input type="text" placeholder="Add description" formControlName="notes" />
+      </div>
+
+      <div class="field">
+        <label>Certificate Issue Date</label>
+        <input type="date" formControlName="certificateIssueDate" />
+      </div>
+
+      <div class="field">
+        <label>Certificate Expiry Date</label>
+        <input type="date" formControlName="certificateExpiryDate" />
+      </div>
+
+      <div class="field" *ngIf="showTerminationDate">
+        <label>Termination Date</label>
+        <input type="date" formControlName="terminationDate" />
+      </div>
+
+      <div class="field">
+        <label>Technician Photo</label>
+        <input type="file" (change)="onFileSelected($event, 'technicianPhotoUrl')" />
+      </div>
+
+      <div class="field">
+        <label>Certificate Upload</label>
+        <input type="file" (change)="onFileSelected($event, 'certificateUrl')" />
+      </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="cancel" (click)="cancel()">Cancel</button>
+          <button type="submit" class="submit" [disabled]="submitting">{{ submitLabel }}</button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>

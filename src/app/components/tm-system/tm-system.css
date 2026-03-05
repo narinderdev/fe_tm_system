@@ -334,28 +334,6 @@ body {
   background: #f1f5f9;
 }
 
-.logout-link {
-  border: 1px solid var(--tm-border);
-  background: #fff;
-  color: var(--tm-muted);
-  font-weight: 500;
-  font-size: 14px;
-  text-align: left;
-  padding: 11px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.logout-link:hover {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
-}
 
 .tm-main {
   background: #ffffff;
@@ -812,6 +790,9 @@ td:nth-child(7) {
   max-width: 520px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
   overflow: hidden;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-dialog.small {
@@ -837,6 +818,7 @@ td:nth-child(7) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px 16px;
+  overflow-y: auto;
 }
 
 .modal-body .form-group {
@@ -848,12 +830,27 @@ td:nth-child(7) {
 }
 
 @media (max-width: 560px) {
+  .modal-dialog {
+    max-height: calc(100vh - 20px);
+  }
+
   .modal-body {
     grid-template-columns: 1fr;
+    padding: 14px 14px 10px;
   }
   .modal-body .form-group,
   .modal-body .form-group.half {
     grid-column: span 1;
+  }
+
+  .modal-footer {
+    padding: 12px 14px 14px;
+  }
+
+  .modal-footer .btn-secondary,
+  .modal-footer .btn-primary {
+    flex: 1;
+    min-width: 0;
   }
 }
 
@@ -877,6 +874,11 @@ td:nth-child(7) {
   color: #0f172a;
   background: #ffffff;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.modal-body select[multiple] {
+  min-height: 120px;
+  padding: 8px 10px;
 }
 
 .modal-body .form-input:focus,
@@ -1170,6 +1172,12 @@ td:nth-child(7) {
   background: #ffffff;
 }
 
+.timesheet-day-total {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #334155;
+}
+
 .timesheet-table tbody tr:last-child td {
   border-bottom: none;
 }
@@ -1354,10 +1362,6 @@ td:nth-child(7) {
   .tm-sidebar-card nav ul {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     display: grid;
-  }
-
-  .logout-link {
-    margin-top: 0;
   }
 
   .tm-main {

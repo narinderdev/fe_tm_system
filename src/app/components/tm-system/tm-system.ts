@@ -72,6 +72,62 @@ interface TimesheetListItem {
   totalHours: number;
 }
 
+interface TechnicianRow {
+  id: string;
+  dbId?: number;
+  name: string;
+  role: string;
+  team: string;
+  teamId?: number;
+  location: string;
+  availability: string;
+  email: string;
+  rawStatus?: string;
+}
+
+interface TeamRow {
+  id: string;
+  dbId?: number;
+  name: string;
+  availability: string;
+  leader: string;
+  leaderId?: number | null;
+  total: number;
+  status: string;
+  technicianIds: number[];
+  activeWos: number | string;
+}
+
+interface TechnicianFormModel {
+  technicianId: string;
+  autoGenerateTechnicianId: boolean;
+  badgeNumber: string;
+  firstName: string;
+  lastName: string;
+  technicianType: string;
+  phoneNumber: string;
+  email: string;
+  status: string;
+  skills: string;
+  certifications: string;
+  address: string;
+  hireDate: string;
+  workShift: string;
+  notes: string;
+  certificateIssueDate: string;
+  certificateExpiryDate: string;
+  technicianPhotoUrl: string;
+  certificateUrl: string;
+  teamId: number | null;
+}
+
+interface TeamFormModel {
+  teamName: string;
+  status: string;
+  teamLeaderId: number | null;
+  technicianIds: number[];
+}
+
 @Component({
   selector: 'app-tm-system',
   standalone: true,
@@ -126,25 +182,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   activities: Activity[] = [];
 
-  technicianRows: Array<{
-    id: string;
-    dbId?: number;
-    name: string;
-    phone: string;
-    email: string;
-    team: string;
-    status: string;
-    workingDays: string;
-  }> = [];
-
-  teamRows: Array<{
-    id: string;
-    name: string;
-    availability: string;
-    leader: string;
-    total: number;
-    activeWos: number | string;
-  }> = [];
+  technicianRows: TechnicianRow[] = [];
+  teamRows: TeamRow[] = [];
 
   workOrderRows: Array<{
     id: string;
@@ -187,6 +226,53 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     lastName: '',
     email: ''
   };
+
+  showTechnicianModal = false;
+  showTechnicianDeleteModal = false;
+  technicianSubmitting = false;
+  technicianDeleting = false;
+  technicianError?: string;
+  editingTechnicianId?: number;
+  deletingTechnicianId?: number;
+  technicianForm: TechnicianFormModel = {
+    technicianId: '',
+    autoGenerateTechnicianId: true,
+    badgeNumber: '',
+    firstName: '',
+    lastName: '',
+    technicianType: '',
+    phoneNumber: '',
+    email: '',
+    status: '',
+    skills: '',
+    certifications: '',
+    address: '',
+    hireDate: '',
+    workShift: '',
+    notes: '',
+    certificateIssueDate: '',
+    certificateExpiryDate: '',
+    technicianPhotoUrl: '',
+    certificateUrl: '',
+    teamId: null
+  };
+
+  showTeamModal = false;
+  showTeamDetailModal = false;
+  showTeamDeleteModal = false;
+  teamSubmitting = false;
+  teamDeleting = false;
+  teamError?: string;
+  editingTeamId?: number;
+  deletingTeamId?: number;
+  selectedTeam?: TeamRow;
+  teamForm: TeamFormModel = {
+    teamName: '',
+    status: 'ACTIVE',
+    teamLeaderId: null,
+    technicianIds: []
+  };
+  technicianOptions: Array<{ id: number; name: string }> = [];
 
   // Leave modal state
   showLeaveModal = false;
@@ -590,6 +676,20 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     row.hours = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
   }
 
+  getDailyTotalHours(date: string): number {
+    const dateKey = this.toDateKey(date);
+    if (!dateKey) {
+      return 0;
+    }
+    const total = this.timeSheetRows.reduce((sum, row) => {
+      if (this.toDateKey(row.date) !== dateKey) {
+        return sum;
+      }
+      return sum + (Number(row.hours) || 0);
+    }, 0);
+    return Number(total.toFixed(2));
+  }
+
   sendForApproval(): void {
     if (this.timesheetSubmitting) {
       return;
@@ -606,7 +706,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         day_of_week: this.dayOfWeekLabel(row.date),
         pay_code: row.payCode,
         hours: Number(row.hours) || 0,
-        daily_total: Number(row.hours) || 0,
+        daily_total: this.getDailyTotalHours(row.date),
         department: row.department || '',
         account: row.account || '',
         project: row.project || '',
@@ -1001,7 +1101,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.techniciansLoading = true;
     this.techniciansLoaded = false;
     this.technicianService
-      .fetchActiveUsers()
+      .fetchTechnicians(this.techPage, this.techSize)
       .pipe(
         take(1),
         finalize(() => {
@@ -1014,35 +1114,16 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           this.zone.run(() => {
-            const list: any[] = Array.isArray((response as any)?.data) ? (response as any).data : [];
-            const role = String(localStorage.getItem('userRole') ?? '').trim().toUpperCase();
-            const nonAdminUsers = list.filter(
-              (user: any) => String(user?.role ?? '').trim().toUpperCase() !== 'ADMIN'
-            );
-            const visibleUsers = role === 'TECHNICIAN'
-              ? nonAdminUsers.filter((user: any) => String(user?.role ?? '').trim().toUpperCase() === 'TECHNICIAN')
-              : nonAdminUsers;
-
-            this.technicianRows = visibleUsers.map((user: any) => {
-              const normalizedRole = String(user?.role ?? '').trim().toUpperCase();
-              const numericId = Number(user?.id);
-              const idSuffix = Number.isFinite(numericId) && numericId > 0
-                ? `${numericId}`.padStart(6, '0')
-                : '000000';
-              return {
-                id: `${normalizedRole === 'TECHNICIAN' ? 'TECH' : 'USR'}-${idSuffix}`,
-                dbId: normalizedRole === 'TECHNICIAN' && Number.isFinite(numericId) && numericId > 0 ? numericId : undefined,
-                name: [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || '-',
-                phone: '-',
-                email: user?.email ?? '-',
-                team: '-',
-                status: user?.active ? 'Available' : 'On leave',
-                workingDays: '-'
-              };
-            });
-            this.techTotal = this.technicianRows.length;
-            this.techPage = 0;
-            this.techSize = Math.max(this.techTotal, 1);
+            const technicians = response.data?.technicians ?? [];
+            this.technicianRows = technicians.map((tech) => this.mapTechnicianRow(tech));
+            this.techTotal = response.data?.totalElements ?? technicians.length;
+            if (typeof response.data?.size === 'number' && response.data.size > 0) {
+              this.techSize = response.data.size;
+            }
+            if (typeof response.data?.page === 'number') {
+              this.techPage = response.data.page;
+            }
+            this.refreshTechnicianOptionsFromRows();
             this.techniciansLoaded = true;
             this.techniciansLoading = false;
             this.cdr.detectChanges();
@@ -1080,14 +1161,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.zone.run(() => {
             const teams = response.data?.teams ?? [];
-            this.teamRows = teams.map((team) => ({
-              id: team.id ? `TEAM${team.id}` : team.teamName ?? '-',
-              name: team.teamName ?? '-',
-              availability: (team as any).availability ?? (team as any).status ?? '-',
-              leader: team.teamLeaderName ?? '-',
-              total: team.technicians?.length ?? 0,
-              activeWos: '-'
-            }));
+            this.teamRows = teams.map((team) => this.mapTeamRow(team));
             this.teamTotal = response.data?.totalElements ?? teams.length;
             if (typeof response.data?.size === 'number' && response.data.size > 0) {
               this.teamSize = response.data.size;
@@ -1109,6 +1183,60 @@ export class TmSystemComponent implements OnInit, OnDestroy {
           });
         }
       });
+  }
+
+  private mapTechnicianRow(tech: ApiTechnician): TechnicianRow {
+    const dbId = typeof tech.id === 'number' ? tech.id : undefined;
+    const technicianCode = tech.technicianId ?? (dbId ? `TECH-${`${dbId}`.padStart(6, '0')}` : '-');
+    return {
+      id: technicianCode,
+      dbId,
+      name: this.buildName(tech),
+      role: this.toTitleCase(tech.technicianType || 'Technician'),
+      team: tech.teamName || this.resolvePrimaryTeamName(tech),
+      teamId: this.resolvePrimaryTeamId(tech),
+      location: tech.address || '-',
+      availability: this.formatWorkStatus(tech.status),
+      email: tech.email ?? '-',
+      rawStatus: tech.status
+    };
+  }
+
+  private mapTeamRow(team: any): TeamRow {
+    const technicianIds = Array.isArray(team?.technicians)
+      ? team.technicians
+          .map((item: any) => Number(item?.id))
+          .filter((value: number) => Number.isFinite(value) && value > 0)
+      : [];
+    return {
+      id: team.id ? `TEAM${team.id}` : team.teamName ?? '-',
+      dbId: team.id,
+      name: team.teamName ?? '-',
+      availability: (team as any).availability ?? (team as any).status ?? 'Unavailable',
+      leader: team.teamLeaderName ?? '-',
+      leaderId: team.teamLeaderId ?? null,
+      total: team.technicians?.length ?? 0,
+      status: this.toTitleCase(String((team as any).status ?? 'ACTIVE')),
+      technicianIds,
+      activeWos: '-'
+    };
+  }
+
+  private resolvePrimaryTeamName(tech: ApiTechnician): string {
+    const primary = tech.teamMemberships?.[0];
+    return primary?.teamName ?? '-';
+  }
+
+  private resolvePrimaryTeamId(tech: ApiTechnician): number | undefined {
+    const primary = tech.teamMemberships?.[0];
+    const id = Number(primary?.teamId ?? tech.teamId);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }
+
+  private refreshTechnicianOptionsFromRows(): void {
+    this.technicianOptions = this.technicianRows
+      .filter((row) => typeof row.dbId === 'number')
+      .map((row) => ({ id: row.dbId as number, name: row.name }));
   }
 
   private formatWorkStatus(status?: string): string {
@@ -1282,7 +1410,16 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     return value
       .split('_')
       .filter(Boolean)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+  }
+
+  private toTitleCase(value: string): string {
+    return String(value ?? '')
+      .toLowerCase()
+      .split(/[_\s]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
   }
 
@@ -1332,6 +1469,608 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.woPage = next;
     this.workOrdersLoaded = false;
     this.loadWorkOrders();
+  }
+
+  goToTechnicianCreate(): void {
+    this.router.navigate(['/tm-system', 'technicians', 'add']);
+  }
+
+  goToTechnicianEdit(row: TechnicianRow): void {
+    if (!row.dbId) {
+      this.toastr.error('Technician id missing.');
+      return;
+    }
+    this.router.navigate(['/tm-system', 'technicians', 'edit', row.dbId]);
+  }
+
+  openTechnicianModal(): void {
+    this.editingTechnicianId = undefined;
+    this.technicianError = undefined;
+    this.technicianSubmitting = false;
+    const today = new Date().toISOString().slice(0, 10);
+    this.technicianForm = {
+      technicianId: '',
+      autoGenerateTechnicianId: true,
+      badgeNumber: '',
+      firstName: '',
+      lastName: '',
+      technicianType: '',
+      phoneNumber: '',
+      email: '',
+      status: '',
+      skills: '',
+      certifications: '',
+      address: '',
+      hireDate: today,
+      workShift: '',
+      notes: '',
+      certificateIssueDate: '',
+      certificateExpiryDate: '',
+      technicianPhotoUrl: '',
+      certificateUrl: '',
+      teamId: null
+    };
+    this.ensureTechnicianOptions();
+    this.showTechnicianModal = true;
+  }
+
+  openTechnicianView(row: TechnicianRow): void {
+    if (!row.dbId) {
+      this.toastr.error('Technician id missing.');
+      return;
+    }
+    this.router.navigate(['/tm-system', 'technicians', row.dbId]);
+  }
+
+  openTechnicianEdit(row: TechnicianRow): void {
+    if (!row.dbId) {
+      this.toastr.error('Technician id missing.');
+      return;
+    }
+    this.editingTechnicianId = row.dbId;
+    this.technicianError = undefined;
+    this.technicianSubmitting = false;
+    const today = new Date().toISOString().slice(0, 10);
+    this.technicianForm = {
+      technicianId: row.id,
+      autoGenerateTechnicianId: false,
+      badgeNumber: '',
+      firstName: '',
+      lastName: '',
+      technicianType: row.role.toUpperCase(),
+      phoneNumber: '',
+      email: row.email === '-' ? '' : row.email,
+      status: (row.rawStatus ?? row.availability).toString().replace(/\s+/g, '_').toUpperCase(),
+      skills: '',
+      certifications: '',
+      address: row.location === '-' ? '' : row.location,
+      hireDate: today,
+      workShift: '',
+      notes: '',
+      certificateIssueDate: '',
+      certificateExpiryDate: '',
+      technicianPhotoUrl: '',
+      certificateUrl: '',
+      teamId: row.teamId ?? null
+    };
+    this.showTechnicianModal = true;
+
+    this.technicianService
+      .fetchTechnicianById(row.dbId)
+      .pipe(take(1))
+      .subscribe({
+        next: (res: any) => {
+          this.zone.run(() => {
+            const tech = res?.data ?? res ?? {};
+            this.technicianForm = {
+              technicianId: tech.technicianId ?? this.technicianForm.technicianId,
+              autoGenerateTechnicianId: false,
+              badgeNumber: tech.badgeNumber ?? '',
+              firstName: tech.firstName ?? '',
+              lastName: tech.lastName ?? '',
+              technicianType: String(tech.technicianType ?? this.technicianForm.technicianType ?? ''),
+              phoneNumber: tech.phoneNumber ?? '',
+              email: tech.email ?? this.technicianForm.email,
+              status: String(tech.status ?? this.technicianForm.status ?? ''),
+              skills: tech.skills ?? '',
+              certifications: tech.certifications ?? '',
+              address: tech.address ?? this.technicianForm.address,
+              hireDate: tech.hireDate ?? this.technicianForm.hireDate,
+              workShift: tech.workShift ?? '',
+              notes: tech.notes ?? '',
+              certificateIssueDate: tech.certificateIssueDate ?? '',
+              certificateExpiryDate: tech.certificateExpiryDate ?? '',
+              technicianPhotoUrl: tech.technicianPhotoUrl ?? '',
+              certificateUrl: tech.certificateUrl ?? '',
+              teamId: this.resolvePrimaryTeamId(tech) ?? this.technicianForm.teamId
+            };
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  closeTechnicianModal(): void {
+    if (this.technicianSubmitting) {
+      return;
+    }
+    this.showTechnicianModal = false;
+    this.editingTechnicianId = undefined;
+    this.technicianError = undefined;
+  }
+
+  openTechnicianDelete(row: TechnicianRow): void {
+    if (!row.dbId) {
+      return;
+    }
+    this.deletingTechnicianId = row.dbId;
+    this.showTechnicianDeleteModal = true;
+    this.technicianError = undefined;
+  }
+
+  closeTechnicianDelete(): void {
+    if (this.technicianDeleting) {
+      return;
+    }
+    this.showTechnicianDeleteModal = false;
+    this.deletingTechnicianId = undefined;
+  }
+
+  submitTechnician(): void {
+    const technicianId = String(this.technicianForm.technicianId ?? '').trim();
+    const firstName = String(this.technicianForm.firstName ?? '').trim();
+    const lastName = String(this.technicianForm.lastName ?? '').trim();
+    const technicianType = String(this.technicianForm.technicianType ?? '').trim().toUpperCase();
+    const phoneNumber = String(this.technicianForm.phoneNumber ?? '').trim();
+    const email = String(this.technicianForm.email ?? '').trim().toLowerCase();
+    const status = String(this.technicianForm.status ?? '').trim().toUpperCase();
+    const skills = String(this.technicianForm.skills ?? '').trim();
+    const certifications = String(this.technicianForm.certifications ?? '').trim();
+    const address = String(this.technicianForm.address ?? '').trim();
+    const hireDate = String(this.technicianForm.hireDate ?? '').trim();
+    const workShift = String(this.technicianForm.workShift ?? '').trim().toUpperCase();
+    const notes = String(this.technicianForm.notes ?? '').trim();
+    const badgeNumber = String(this.technicianForm.badgeNumber ?? '').trim();
+    const certificateIssueDate = String(this.technicianForm.certificateIssueDate ?? '').trim();
+    const certificateExpiryDate = String(this.technicianForm.certificateExpiryDate ?? '').trim();
+    const technicianPhotoUrl = String(this.technicianForm.technicianPhotoUrl ?? '').trim();
+    const certificateUrl = String(this.technicianForm.certificateUrl ?? '').trim();
+    const teamId = this.technicianForm.teamId ? Number(this.technicianForm.teamId) : undefined;
+
+    if (
+      (!this.technicianForm.autoGenerateTechnicianId && !technicianId)
+      || !firstName
+      || !lastName
+      || !technicianType
+      || !phoneNumber
+      || !email
+      || !status
+      || !skills
+      || !address
+      || !hireDate
+      || !workShift
+    ) {
+      this.technicianError = 'Please fill all required fields.';
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      this.technicianError = 'Please enter a valid email address.';
+      return;
+    }
+
+    this.technicianSubmitting = true;
+    this.technicianError = undefined;
+    const payload = this.buildTechnicianPayload({
+      technicianId,
+      autoGenerateTechnicianId: this.technicianForm.autoGenerateTechnicianId,
+      firstName,
+      lastName,
+      technicianType,
+      phoneNumber,
+      email,
+      status,
+      skills,
+      certifications,
+      address,
+      hireDate,
+      workShift,
+      notes,
+      badgeNumber,
+      certificateIssueDate,
+      certificateExpiryDate,
+      technicianPhotoUrl,
+      certificateUrl,
+      teamId
+    });
+    const request$ = this.editingTechnicianId
+      ? this.technicianService.updateTechnician(this.editingTechnicianId, payload)
+      : this.technicianService.createTechnician(payload);
+
+    request$
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.technicianSubmitting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.showTechnicianModal = false;
+            this.editingTechnicianId = undefined;
+            this.toastr.success('Technician saved successfully.');
+            this.techniciansLoaded = false;
+            this.teamsLoaded = false;
+            this.loadTechnicians();
+            this.loadTeams();
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            this.technicianError = err?.error?.message ?? 'Failed to save technician.';
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  onTechnicianFileSelected(event: Event, field: 'technicianPhotoUrl' | 'certificateUrl'): void {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    this.technicianForm[field] = file ? file.name : '';
+  }
+
+  onAutoGenerateTechnicianIdChange(): void {
+    if (this.technicianForm.autoGenerateTechnicianId) {
+      this.technicianForm.technicianId = '';
+    }
+  }
+
+  confirmTechnicianDelete(): void {
+    if (!this.deletingTechnicianId) {
+      return;
+    }
+    const technicianId = this.deletingTechnicianId;
+    this.technicianDeleting = true;
+    this.technicianService
+      .deleteTechnician(technicianId)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.technicianDeleting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.showTechnicianDeleteModal = false;
+            this.deletingTechnicianId = undefined;
+            this.ensureTeamConsistencyAfterTechnicianDelete(technicianId);
+            this.techniciansLoaded = false;
+            this.teamsLoaded = false;
+            this.loadTechnicians();
+            this.loadTeams();
+            this.toastr.success('Technician deleted successfully.');
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            this.technicianError = err?.error?.message ?? 'Failed to delete technician.';
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  openTeamModal(): void {
+    this.editingTeamId = undefined;
+    this.teamError = undefined;
+    this.teamSubmitting = false;
+    this.teamForm = {
+      teamName: '',
+      status: 'ACTIVE',
+      teamLeaderId: null,
+      technicianIds: []
+    };
+    this.ensureTechnicianOptions();
+    this.showTeamModal = true;
+  }
+
+  openTeamView(row: TeamRow): void {
+    this.selectedTeam = row;
+    this.showTeamDetailModal = true;
+  }
+
+  closeTeamView(): void {
+    this.showTeamDetailModal = false;
+    this.selectedTeam = undefined;
+  }
+
+  openTeamEdit(row: TeamRow): void {
+    if (!row.dbId) {
+      return;
+    }
+    this.editingTeamId = row.dbId;
+    this.teamError = undefined;
+    this.teamSubmitting = false;
+    this.teamForm = {
+      teamName: row.name,
+      status: String(row.status || 'ACTIVE').toUpperCase().replace(/\s+/g, '_'),
+      teamLeaderId: row.leaderId ?? null,
+      technicianIds: [...row.technicianIds]
+    };
+    this.ensureTechnicianOptions();
+    this.showTeamModal = true;
+
+    this.technicianService
+      .fetchTechnicianTeamById(row.dbId)
+      .pipe(take(1))
+      .subscribe({
+        next: (res: any) => {
+          this.zone.run(() => {
+            const team = res?.data ?? res ?? {};
+            const ids = Array.isArray(team?.technicians)
+              ? team.technicians
+                  .map((item: any) => Number(item?.id))
+                  .filter((value: number) => Number.isFinite(value) && value > 0)
+              : this.teamForm.technicianIds;
+            this.teamForm = {
+              teamName: team.teamName ?? this.teamForm.teamName,
+              status: String(team.status ?? this.teamForm.status ?? 'ACTIVE').toUpperCase(),
+              teamLeaderId: team.teamLeaderId ?? this.teamForm.teamLeaderId,
+              technicianIds: ids
+            };
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  closeTeamModal(): void {
+    if (this.teamSubmitting) {
+      return;
+    }
+    this.showTeamModal = false;
+    this.editingTeamId = undefined;
+    this.teamError = undefined;
+  }
+
+  openTeamDelete(row: TeamRow): void {
+    if (!row.dbId) {
+      return;
+    }
+    this.deletingTeamId = row.dbId;
+    this.showTeamDeleteModal = true;
+    this.teamError = undefined;
+  }
+
+  closeTeamDelete(): void {
+    if (this.teamDeleting) {
+      return;
+    }
+    this.showTeamDeleteModal = false;
+    this.deletingTeamId = undefined;
+  }
+
+  submitTeam(): void {
+    const teamName = String(this.teamForm.teamName ?? '').trim();
+    const status = String(this.teamForm.status ?? '').trim().toUpperCase();
+    const technicianIds = [...new Set((this.teamForm.technicianIds ?? []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
+    const teamLeaderId = this.teamForm.teamLeaderId ? Number(this.teamForm.teamLeaderId) : null;
+
+    if (!teamName || !status) {
+      this.teamError = 'Please fill all required fields.';
+      return;
+    }
+    if (!technicianIds.length) {
+      this.teamError = 'Select at least one technician for the team.';
+      return;
+    }
+    if (!teamLeaderId || !technicianIds.includes(teamLeaderId)) {
+      this.teamError = 'Team leader must be one of the selected technicians.';
+      return;
+    }
+
+    this.teamSubmitting = true;
+    this.teamError = undefined;
+    const payload = {
+      teamName,
+      status,
+      technicianIds,
+      teamLeaderId
+    };
+    const request$: any = this.editingTeamId
+      ? this.technicianService.updateTechnicianTeam(this.editingTeamId, payload)
+      : this.technicianService.createTechnicianTeam(payload);
+
+    request$
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.teamSubmitting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.showTeamModal = false;
+            this.editingTeamId = undefined;
+            this.teamsLoaded = false;
+            this.techniciansLoaded = false;
+            this.loadTeams();
+            this.loadTechnicians();
+            this.toastr.success('Team saved successfully.');
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            this.teamError = err?.error?.message ?? 'Failed to save team.';
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  confirmTeamDelete(): void {
+    if (!this.deletingTeamId) {
+      return;
+    }
+    this.teamDeleting = true;
+    this.technicianService
+      .deleteTechnicianTeam(this.deletingTeamId)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.teamDeleting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.showTeamDeleteModal = false;
+            this.deletingTeamId = undefined;
+            this.teamsLoaded = false;
+            this.techniciansLoaded = false;
+            this.loadTeams();
+            this.loadTechnicians();
+            this.toastr.success('Team deleted successfully.');
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            this.teamError = err?.error?.message ?? 'Failed to delete team.';
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  onTeamTechniciansChange(ids: Array<number | string>): void {
+    const normalized = [...new Set(ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
+    this.teamForm.technicianIds = normalized;
+    if (this.teamForm.teamLeaderId && !normalized.includes(Number(this.teamForm.teamLeaderId))) {
+      this.teamForm.teamLeaderId = null;
+    }
+  }
+
+  get selectableLeaderOptions(): Array<{ id: number; name: string }> {
+    const set = new Set((this.teamForm.technicianIds ?? []).map((id) => Number(id)));
+    return this.technicianOptions.filter((opt) => set.has(opt.id));
+  }
+
+  private buildTechnicianPayload(input: {
+    technicianId: string;
+    autoGenerateTechnicianId: boolean;
+    firstName: string;
+    lastName: string;
+    technicianType: string;
+    phoneNumber: string;
+    email: string;
+    status: string;
+    skills: string;
+    certifications: string;
+    address: string;
+    hireDate: string;
+    workShift: string;
+    notes: string;
+    badgeNumber: string;
+    certificateIssueDate: string;
+    certificateExpiryDate: string;
+    technicianPhotoUrl: string;
+    certificateUrl: string;
+    teamId?: number;
+  }): any {
+    return {
+      technicianId: input.autoGenerateTechnicianId ? undefined : input.technicianId,
+      badgeNumber: input.badgeNumber || undefined,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      technicianType: input.technicianType,
+      skills: input.skills,
+      phoneNumber: input.phoneNumber,
+      email: input.email,
+      address: input.address,
+      status: input.status,
+      hireDate: input.hireDate,
+      workShift: input.workShift,
+      certifications: input.certifications || '',
+      certificateIssueDate: input.certificateIssueDate || undefined,
+      certificateExpiryDate: input.certificateExpiryDate || undefined,
+      technicianPhotoUrl: input.technicianPhotoUrl || undefined,
+      certificateUrl: input.certificateUrl || undefined,
+      notes: input.notes || '',
+      teamId: input.teamId
+    };
+  }
+
+  private ensureTeamConsistencyAfterTechnicianDelete(technicianId: number): void {
+    this.technicianService
+      .fetchTechnicianTeams(0, 100)
+      .pipe(take(1))
+      .subscribe({
+        next: (res) => {
+          const teams = res?.data?.teams ?? [];
+          for (const team of teams as any[]) {
+            const memberIds = Array.isArray(team?.technicians)
+              ? team.technicians
+                  .map((item: any) => Number(item?.id))
+                  .filter((value: number) => Number.isFinite(value) && value > 0)
+              : [];
+            const isLeaderRemoved = Number(team?.teamLeaderId) === technicianId;
+            if (!memberIds.includes(technicianId) && !isLeaderRemoved) {
+              continue;
+            }
+            const nextIds = memberIds.filter((id: number) => id !== technicianId);
+            const nextLeader = isLeaderRemoved ? (nextIds[0] ?? null) : (team?.teamLeaderId ?? null);
+            this.technicianService
+              .updateTechnicianTeam(team.id, {
+                teamName: team.teamName ?? '',
+                status: String(team.status ?? 'ACTIVE').toUpperCase(),
+                technicianIds: nextIds,
+                teamLeaderId: nextLeader
+              })
+              .pipe(take(1))
+              .subscribe();
+          }
+        }
+      });
+  }
+
+  private ensureTechnicianOptions(): void {
+    if (this.technicianOptions.length) {
+      return;
+    }
+    this.technicianService
+      .fetchTechnicians(0, 200)
+      .pipe(take(1))
+      .subscribe({
+        next: (res) => {
+          this.zone.run(() => {
+            const list = res?.data?.technicians ?? [];
+            this.technicianOptions = list
+              .map((tech: ApiTechnician) => ({
+                id: Number(tech?.id),
+                name: this.buildName(tech)
+              }))
+              .filter((item: { id: number; name: string }) => Number.isFinite(item.id) && item.id > 0);
+            this.cdr.detectChanges();
+          });
+        }
+      });
   }
 
   editLeave(row: { id: string; technician: string; from: string; to: string; reason: string; technicianId?: string | number }): void {

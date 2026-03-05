@@ -16,8 +16,7 @@ import { ActivatedRoute } from '@angular/router';
 
 describe('TmSystemComponent (invite technician)', () => {
   const technicianServiceMock = {
-    fetchActiveUsers: vi.fn().mockReturnValue(of({ data: [] })),
-    fetchTechnicians: vi.fn().mockReturnValue(of({ data: { technicians: [] } })),
+    fetchTechnicians: vi.fn().mockReturnValue(of({ data: { technicians: [], totalElements: 0, page: 0, size: 10 } })),
     fetchTechnicianTeams: vi.fn().mockReturnValue(of({ data: { teams: [] } })),
     fetchLeaves: vi.fn().mockReturnValue(of({ data: { leaves: [] } })),
     fetchHolidays: vi.fn().mockReturnValue(of({ data: { holidays: [] } }))
@@ -53,7 +52,6 @@ describe('TmSystemComponent (invite technician)', () => {
 
   beforeEach(async () => {
     technicianServiceMock.fetchTechnicians.mockClear();
-    technicianServiceMock.fetchActiveUsers.mockClear();
     userManagementServiceMock.inviteUser.mockClear();
     toastrMock.success.mockClear();
     toastrMock.error.mockClear();
