@@ -1034,7 +1034,17 @@ td:nth-child(7) {
 }
 
 .timesheet-list-table {
-  min-width: 860px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.timesheet-list-table th:first-child,
+.timesheet-list-table td:first-child {
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+  white-space: nowrap;
 }
 
 .timesheet-toolbar {
@@ -1071,6 +1081,51 @@ td:nth-child(7) {
   background: #ffffff;
   color: #1e293b;
   font-weight: 600;
+}
+
+.timesheet-technician {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.timesheet-technician label {
+  font-weight: 700;
+  color: #334155;
+}
+
+.timesheet-technician select {
+  min-width: 220px;
+  height: 38px;
+  border: 1px solid #bfccdd;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.timesheet-template-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timesheet-template-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.timesheet-template-check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
 }
 
 .timesheet-actions {
@@ -1120,9 +1175,15 @@ td:nth-child(7) {
 }
 
 .timesheet-table {
-  min-width: 1460px;
+  min-width: 1700px;
+  width: max-content;
   border-collapse: separate;
   border-spacing: 0;
+}
+
+.timesheet-table.timesheet-list-table {
+  min-width: 0;
+  width: 100%;
 }
 
 .timesheet-table th {
@@ -1140,6 +1201,18 @@ td:nth-child(7) {
 
 .timesheet-table th:last-child {
   border-top-right-radius: 12px;
+}
+
+.timesheet-table th:nth-child(2),
+.timesheet-table td:nth-child(2) {
+  min-width: 220px;
+  width: 220px;
+}
+
+.timesheet-table th:nth-child(3),
+.timesheet-table td:nth-child(3) {
+  min-width: 160px;
+  width: 160px;
 }
 
 .timesheet-table .timesheet-comment-col {

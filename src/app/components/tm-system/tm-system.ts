@@ -61,6 +61,7 @@ interface TimeSheetRow {
 interface WorkOrderProjectOption {
   id: number;
   name: string;
+  workOrderNumber?: string;
   isFavourite: boolean;
 }
 
@@ -82,6 +83,7 @@ interface TechnicianRow {
   id: string;
   dbId?: number;
   name: string;
+  badgeNumber?: string;
   role: string;
   team: string;
   teamId?: number;
@@ -178,7 +180,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   readonly navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: 'radix-icons_dashboard.svg' },
     { id: 'technicians', label: 'Technician List', icon: 'tec.svg' },
-    { id: 'teams', label: 'Teams', icon: 'streamline_hierarchy-10.svg' },
+    { id: 'teams', label: 'Team', icon: 'streamline_hierarchy-10.svg' },
     { id: 'work-orders', label: 'Work Orders', icon: 'fluent-mdl2_work-flow.svg' },
     { id: 'leaves', label: 'PTO & Holidays', icon: 'proicons_document.svg' },
     { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' }
@@ -278,7 +280,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     teamLeaderId: null,
     technicianIds: []
   };
-  technicianOptions: Array<{ id: number; name: string }> = [];
+  technicianOptions: Array<{ id: number; name: string; badgeNumber?: string }> = [];
 
   // Leave modal state
   showLeaveModal = false;
@@ -313,6 +315,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   timeSheetEditLoading = false;
   timeSheetProjectOptions: WorkOrderProjectOption[] = [];
   timeSheetProjectOptionsLoading = false;
+  timeSheetTechnicianOptions: Array<{ id: number; name: string }> = [];
+  timeSheetTechnicianLoading = false;
+  selectedTimeSheetTechnicianId: number | null = null;
+  saveAsTemplate = false;
+  applyingTemplate = false;
   timeSheetDepartmentOptions: string[] = [];
   timeSheetDepartmentLoading = false;
   timeSheetGlAccountOptions: string[] = [];
@@ -413,6 +420,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private initializeTimeSheet(): void {
     this.timeSheetScreenMode = 'list';
     this.openProjectDropdownRowId = undefined;
+    if (this.isAdminRole) {
+      this.loadTimeSheetTechnicianOptions();
+    }
     this.loadTimesheetList();
 
     if (!this.timeSheetReady) {
@@ -424,6 +434,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   openTimeSheetCreate(): void {
     this.editingTimesheetId = undefined;
     this.openProjectDropdownRowId = undefined;
+    this.saveAsTemplate = false;
+    if (this.isAdminRole) {
+      this.selectedTimeSheetTechnicianId = null;
+      this.loadTimeSheetTechnicianOptions();
+    }
     if (!this.timeSheetReady) {
       this.setPayPeriod(0);
       this.timeSheetReady = true;
@@ -529,6 +544,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
             if (sourceRows.length) {
               this.timeSheetRows = sourceRows.map((row: any) => this.toUiTimeSheetRow(row));
+              if (this.isAdminRole) {
+                const selectedId = Number(sourceRows[0]?.technician_id ?? sourceRows[0]?.technicianId);
+                this.selectedTimeSheetTechnicianId = Number.isFinite(selectedId) && selectedId > 0 ? selectedId : null;
+              }
             } else {
               this.seedTimeSheetRows();
             }
@@ -553,25 +572,62 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private setPayPeriod(offsetPeriods: number): void {
     const periodDays = this.timeSheetView === 'WEEK' ? 7 : 14;
     const now = new Date();
-    const start = new Date(now);
-    const day = start.getDay();
-    const diffToMonday = (day + 6) % 7;
-    start.setDate(start.getDate() - diffToMonday + offsetPeriods * periodDays);
+    let start = new Date(now.getFullYear(), now.getMonth(), 1);
     start.setHours(0, 0, 0, 0);
 
-    const end = new Date(start);
-    end.setDate(start.getDate() + (periodDays - 1));
-    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-    monthEnd.setHours(0, 0, 0, 0);
-
-    if (end > monthEnd) {
-      end.setTime(monthEnd.getTime());
+    if (offsetPeriods > 0) {
+      for (let i = 0; i < offsetPeriods; i += 1) {
+        start = this.getNextPeriodStart(start, periodDays);
+      }
+    } else if (offsetPeriods < 0) {
+      for (let i = 0; i < Math.abs(offsetPeriods); i += 1) {
+        start = this.getPreviousPeriodStart(start, periodDays);
+      }
     }
+    const end = this.getPeriodEndDate(start, periodDays);
 
     this.currentPeriodOffset = offsetPeriods;
     this.payPeriodStart = this.toIsoDate(start);
     this.payPeriodEnd = this.toIsoDate(end);
     this.seedTimeSheetRows();
+  }
+
+  private getPeriodEndDate(start: Date, periodDays: number): Date {
+    const end = new Date(start);
+    end.setDate(start.getDate() + (periodDays - 1));
+    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    monthEnd.setHours(0, 0, 0, 0);
+    if (end > monthEnd) {
+      end.setTime(monthEnd.getTime());
+    }
+    end.setHours(0, 0, 0, 0);
+    return end;
+  }
+
+  private getNextPeriodStart(start: Date, periodDays: number): Date {
+    const end = this.getPeriodEndDate(start, periodDays);
+    const next = new Date(end);
+    next.setDate(end.getDate() + 1);
+    next.setHours(0, 0, 0, 0);
+    return next;
+  }
+
+  private getPreviousPeriodStart(start: Date, periodDays: number): Date {
+    const previousDay = new Date(start);
+    previousDay.setDate(start.getDate() - 1);
+    previousDay.setHours(0, 0, 0, 0);
+    return this.getPeriodStartForDate(previousDay, periodDays);
+  }
+
+  private getPeriodStartForDate(date: Date, periodDays: number): Date {
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const dayOfMonth = date.getDate();
+    const periodIndex = Math.floor((dayOfMonth - 1) / periodDays);
+    const periodStart = new Date(monthStart);
+    periodStart.setDate(monthStart.getDate() + (periodIndex * periodDays));
+    periodStart.setHours(0, 0, 0, 0);
+    return periodStart;
   }
 
   previousPayPeriod(): void {
@@ -587,6 +643,29 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.setPayPeriod(0);
   }
 
+  onTimeSheetTechnicianChange(value: number | string | null): void {
+    if (!this.isAdminRole) {
+      return;
+    }
+    const selectedId = Number(value);
+    this.selectedTimeSheetTechnicianId = Number.isFinite(selectedId) && selectedId > 0 ? selectedId : null;
+    this.timeSheetProjectOptions = [];
+    this.openProjectDropdownRowId = undefined;
+    const technicianId = this.getCurrentTechnicianId();
+    if (!technicianId) {
+      this.timeSheetRows = this.timeSheetRows.map((row) => ({
+        ...row,
+        technicianId: 0
+      }));
+      return;
+    }
+    this.timeSheetRows = this.timeSheetRows.map((row) => ({
+      ...row,
+      technicianId
+    }));
+    this.loadTimeSheetProjectOptions();
+  }
+
   toggleProjectDropdown(rowId: number, event: MouseEvent): void {
     event.stopPropagation();
     this.openProjectDropdownRowId = this.openProjectDropdownRowId === rowId ? undefined : rowId;
@@ -596,7 +675,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   selectProjectOption(row: TimeSheetRow, option: WorkOrderProjectOption): void {
-    row.project = option.name;
+    row.project = option.workOrderNumber || option.name;
     row.workOrderId = option.id;
     this.openProjectDropdownRowId = undefined;
   }
@@ -629,6 +708,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: () => {
           this.zone.run(() => {
             option.isFavourite = true;
+            this.timeSheetProjectOptions = [...this.timeSheetProjectOptions]
+              .sort((a, b) => Number(b.isFavourite) - Number(a.isFavourite));
             this.toastr.success('Project marked as favourite.');
             this.cdr.detectChanges();
           });
@@ -815,6 +896,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (this.timesheetSubmitting) {
       return;
     }
+    if (this.isAdminRole && !this.getCurrentTechnicianId()) {
+      this.toastr.error('Please select a technician.');
+      return;
+    }
 
     const payloadRows = this.timeSheetRows
       .filter((row) => {
@@ -851,7 +936,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       totalNonWorked: nonWorkedTotal,
       totalPremium: premiumTotal,
       timesheet_days: payloadDays,
-      timesheet_rows: payloadRows
+      timesheet_rows: payloadRows,
+      ...(this.saveAsTemplate ? { save_as_template: true } : {})
     };
 
     const editingId = this.editingTimesheetId;
@@ -861,11 +947,19 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
     this.timesheetSubmitting = true;
     request$
-      .pipe(take(1))
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timesheetSubmitting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
       .subscribe({
         next: () => {
           this.zone.run(() => {
-            this.timesheetSubmitting = false;
+            this.saveAsTemplate = false;
             this.toastr.success(editingId ? 'Timesheet updated successfully.' : 'Timesheet sent for approval.');
             this.editingTimesheetId = undefined;
             this.openTimeSheetList();
@@ -874,7 +968,6 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.zone.run(() => {
-            this.timesheetSubmitting = false;
             this.toastr.error(editingId ? 'Failed to update timesheet.' : 'Failed to send timesheet for approval.');
             this.cdr.detectChanges();
           });
@@ -930,15 +1023,15 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (this.timeSheetProjectOptionsLoading) {
       return;
     }
+    const technicianId = this.getCurrentTechnicianId();
+    if (!technicianId || technicianId <= 0) {
+      this.timeSheetProjectOptions = [];
+      return;
+    }
 
     this.timeSheetProjectOptionsLoading = true;
-    const technicianId = this.getCurrentTechnicianId();
-    const request$ =
-      this.isTechnicianRole && technicianId > 0
-        ? this.workOrderService.fetchWorkOrdersForTechnician(technicianId, 0, 200)
-        : this.workOrderService.fetchWorkOrders(0, 200);
-
-    request$
+    this.workOrderService
+      .fetchWorkOrderNumbers(technicianId)
       .pipe(
         take(1),
         finalize(() => {
@@ -958,7 +1051,123 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         error: () => {
           this.zone.run(() => {
             this.timeSheetProjectOptions = [];
-            this.toastr.error('Failed to load project options.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  applyTemplate(): void {
+    if (this.applyingTemplate) {
+      return;
+    }
+    const technicianId = this.getCurrentTechnicianId();
+    if (!technicianId || technicianId <= 0) {
+      if (this.isAdminRole) {
+        this.toastr.error('Please select a technician first.');
+      }
+      return;
+    }
+
+    this.applyingTemplate = true;
+    this.timesheetService
+      .fetchRecentEntryByTechnician(technicianId)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.applyingTemplate = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            const data = response?.data ?? response ?? {};
+            const payCode = String(data?.pay_code ?? data?.payCode ?? '').trim().toUpperCase();
+            const department = String(data?.department ?? data?.accounting_unit ?? '').trim();
+            const account = String(data?.account ?? data?.ferc ?? '').trim();
+            const project = String(data?.project ?? data?.activity ?? '').trim();
+            const templateHoursRaw = Number(data?.totalHours ?? data?.total_hours);
+            const templateHours = Number.isFinite(templateHoursRaw) && templateHoursRaw >= 0
+              ? Number(templateHoursRaw.toFixed(2))
+              : null;
+
+            if (department && !this.timeSheetDepartmentOptions.includes(department)) {
+              this.timeSheetDepartmentOptions = [department, ...this.timeSheetDepartmentOptions];
+            }
+            if (account && !this.timeSheetGlAccountOptions.includes(account)) {
+              this.timeSheetGlAccountOptions = [account, ...this.timeSheetGlAccountOptions];
+            }
+
+            this.timeSheetRows = this.timeSheetRows.map((row) => ({
+              ...row,
+              technicianId,
+              payCode: payCode || row.payCode,
+              hours: templateHours,
+              department: department || row.department,
+              account: account || row.account,
+              project: project || row.project
+            }));
+            this.cdr.detectChanges();
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            const message = String(err?.error?.message ?? err?.message ?? 'Failed to apply template.').trim();
+            this.toastr.error(message || 'Failed to apply template.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private loadTimeSheetTechnicianOptions(): void {
+    if (!this.isAdminRole || this.timeSheetTechnicianLoading) {
+      return;
+    }
+
+    this.timeSheetTechnicianLoading = true;
+    this.technicianService
+      .fetchTechnicians(0, 200)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timeSheetTechnicianLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            const list = response?.data?.technicians ?? [];
+            this.timeSheetTechnicianOptions = list
+              .map((tech: ApiTechnician) => ({
+                id: Number(tech?.id),
+                name: this.buildName(tech)
+              }))
+              .filter((item: { id: number; name: string }) => Number.isFinite(item.id) && item.id > 0);
+
+            const hasSelected = this.timeSheetTechnicianOptions.some((item) => item.id === this.selectedTimeSheetTechnicianId);
+            if (!hasSelected) {
+              this.selectedTimeSheetTechnicianId = null;
+            }
+
+            this.timeSheetRows = this.timeSheetRows.map((row) => ({
+              ...row,
+              technicianId: this.getCurrentTechnicianId() || 0
+            }));
+
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.timeSheetTechnicianOptions = [];
+            this.toastr.error('Failed to load technicians.');
             this.cdr.detectChanges();
           });
         }
@@ -986,12 +1195,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: (response: any) => {
           this.zone.run(() => {
             this.timeSheetGlAccountOptions = this.normalizeGlAccountOptions(response);
+            this.timeSheetGlAccountLoading = false;
             this.cdr.detectChanges();
           });
         },
         error: () => {
           this.zone.run(() => {
             this.timeSheetGlAccountOptions = [];
+            this.timeSheetGlAccountLoading = false;
             this.toastr.error('Failed to load GL account options.');
             this.cdr.detectChanges();
           });
@@ -1020,12 +1231,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: (response: any) => {
           this.zone.run(() => {
             this.timeSheetDepartmentOptions = this.normalizeDepartmentOptions(response);
+            this.timeSheetDepartmentLoading = false;
             this.cdr.detectChanges();
           });
         },
         error: () => {
           this.zone.run(() => {
             this.timeSheetDepartmentOptions = [];
+            this.timeSheetDepartmentLoading = false;
             this.toastr.error('Failed to load department options.');
             this.cdr.detectChanges();
           });
@@ -1082,17 +1295,35 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private normalizeProjectOptions(response: any): WorkOrderProjectOption[] {
-    const source = Array.isArray(response?.data?.workOrders)
-      ? response.data.workOrders
-      : (Array.isArray(response?.data?.content)
-        ? response.data.content
-        : (Array.isArray(response?.workOrders)
-          ? response.workOrders
-          : []));
+    const favouriteSource = Array.isArray(response?.data?.favouriteWorkOrderNumbers)
+      ? response.data.favouriteWorkOrderNumbers
+      : (Array.isArray(response?.favouriteWorkOrderNumbers) ? response.favouriteWorkOrderNumbers : []);
+
+    const normalCandidates = [
+      response?.data?.workOrderNumbers,
+      response?.data?.numbers,
+      response?.workOrderNumbers,
+      response?.numbers,
+      response?.data,
+      response,
+      response?.data?.workOrders,
+      response?.data?.content,
+      response?.workOrders
+    ];
+    const normalSource = normalCandidates.find((candidate) => Array.isArray(candidate)) ?? [];
+
+    const source = [...favouriteSource, ...normalSource];
+    const favouriteKeys = new Set<string>(
+      favouriteSource
+        .map((item: any) => String(item?.id ?? item?.workOrderNumber ?? item?.work_order_number ?? '').trim())
+        .filter((value: string) => !!value)
+    );
 
     const byId = new Map<number, WorkOrderProjectOption>();
     source.forEach((item: any) => {
-      const id = Number(item?.id ?? item?.workOrderDbId ?? item?.work_order_id);
+      const primitiveValue = typeof item === 'string' || typeof item === 'number' ? String(item).trim() : '';
+      const derivedNumber = Number(primitiveValue.replace(/[^0-9]/g, ''));
+      const id = Number(item?.id ?? item?.workOrderDbId ?? item?.work_order_id ?? item?.workOrderNumber ?? derivedNumber);
       if (!Number.isFinite(id) || id <= 0) {
         return;
       }
@@ -1100,17 +1331,26 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         return;
       }
       const name =
-        String(item?.woTitle ?? item?.name ?? item?.project ?? item?.workOrderId ?? item?.assetName ?? '').trim()
+        String(item?.woTitle ?? item?.name ?? item?.project ?? item?.workOrderId ?? item?.assetName ?? primitiveValue).trim()
         || `Work Order #${id}`;
-      const isFavourite = !!(item?.isFavourite ?? item?.isFavorite ?? item?.favourite ?? item?.favorite);
+      const workOrderNumber = String(item?.workOrderNumber ?? item?.work_order_number ?? item?.workOrderId ?? primitiveValue).trim();
+      const isFavourite = !!(
+        item?.isFavourite
+        || item?.isFavorite
+        || item?.favourite
+        || item?.favorite
+        || favouriteKeys.has(String(id))
+        || (workOrderNumber ? favouriteKeys.has(workOrderNumber) : false)
+      );
       byId.set(id, {
         id,
         name,
+        workOrderNumber: workOrderNumber || undefined,
         isFavourite
       });
     });
 
-    return Array.from(byId.values());
+    return Array.from(byId.values()).sort((a, b) => Number(b.isFavourite) - Number(a.isFavourite));
   }
 
   private dayOfWeekLabel(value: string): string {
@@ -1124,7 +1364,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private getCurrentTechnicianId(): number {
     const role = String(localStorage.getItem('userRole') ?? '').trim().toUpperCase();
     if (role === 'ADMIN') {
-      return 1;
+      const selected = Number(this.selectedTimeSheetTechnicianId);
+      return Number.isFinite(selected) && selected > 0 ? selected : 0;
     }
 
     const raw = localStorage.getItem('technicianId');
@@ -1500,6 +1741,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       id: technicianCode,
       dbId,
       name: this.buildName(tech),
+      badgeNumber: tech.badgeNumber ?? '',
       role: this.toTitleCase(tech.technicianType || 'Technician'),
       team: tech.teamName || this.resolvePrimaryTeamName(tech),
       teamId: this.resolvePrimaryTeamId(tech),
@@ -1544,7 +1786,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private refreshTechnicianOptionsFromRows(): void {
     this.technicianOptions = this.technicianRows
       .filter((row) => typeof row.dbId === 'number')
-      .map((row) => ({ id: row.dbId as number, name: row.name }));
+      .map((row) => ({ id: row.dbId as number, name: row.name, badgeNumber: row.badgeNumber }));
   }
 
   private formatWorkStatus(status?: string): string {
@@ -2275,7 +2517,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
   }
 
-  get selectableLeaderOptions(): Array<{ id: number; name: string }> {
+  get selectableLeaderOptions(): Array<{ id: number; name: string; badgeNumber?: string }> {
     const set = new Set((this.teamForm.technicianIds ?? []).map((id) => Number(id)));
     return this.technicianOptions.filter((opt) => set.has(opt.id));
   }
@@ -2372,9 +2614,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             this.technicianOptions = list
               .map((tech: ApiTechnician) => ({
                 id: Number(tech?.id),
-                name: this.buildName(tech)
+                name: this.buildName(tech),
+                badgeNumber: String(tech?.badgeNumber ?? '').trim() || undefined
               }))
-              .filter((item: { id: number; name: string }) => Number.isFinite(item.id) && item.id > 0);
+              .filter((item: { id: number; name: string; badgeNumber?: string }) => Number.isFinite(item.id) && item.id > 0);
             this.cdr.detectChanges();
           });
         }

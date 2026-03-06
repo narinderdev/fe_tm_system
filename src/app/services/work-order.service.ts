@@ -368,6 +368,14 @@ export class WorkOrderService {
     return this.http.get<WorkOrdersApiResponse>(this.apiUrl, { params, headers });
   }
 
+  fetchWorkOrderNumbers(technicianId: number): Observable<any> {
+    const params = new HttpParams().set('technicianId', technicianId.toString());
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/numbers`, { params, headers });
+  }
+
   fetchWorkOrderTypes(page: number, size: number): Observable<WorkOrderTypeResponse> {
     const params = new HttpParams()
       .set('page', page.toString())

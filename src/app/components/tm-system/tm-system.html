@@ -208,7 +208,7 @@
                   </div>
                 </div>
                 <div class="modal-footer">
-                  <button class="btn-secondary" type="button" (click)="closeInviteTechnician()" [disabled]="inviteSubmitting">Cancel</button>
+                  <button class="btn-secondary" type="button" (click)="closeInviteTechnician()" [disabled]="inviteSubmitting">Close</button>
                   <button class="btn-primary" type="submit" [disabled]="inviteSubmitting">
                     {{ inviteSubmitting ? 'Sending...' : 'Send Invite' }}
                   </button>
@@ -418,14 +418,18 @@
                   <div class="form-group">
                     <label class="form-label">Technicians</label>
                     <select class="form-input" multiple [ngModel]="teamForm.technicianIds" name="teamTechnicians" (ngModelChange)="onTeamTechniciansChange($event)">
-                      <option *ngFor="let tech of technicianOptions" [ngValue]="tech.id">{{ tech.name }}</option>
+                      <option *ngFor="let tech of technicianOptions" [ngValue]="tech.id">
+                        {{ tech.name }}{{ tech.badgeNumber ? ' (Badge No: ' + tech.badgeNumber + ')' : '' }}
+                      </option>
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="form-label">Team Leader</label>
                     <select class="form-input" [(ngModel)]="teamForm.teamLeaderId" name="teamLeaderId" required>
                       <option [ngValue]="null">Select leader</option>
-                      <option *ngFor="let opt of selectableLeaderOptions" [ngValue]="opt.id">{{ opt.name }}</option>
+                      <option *ngFor="let opt of selectableLeaderOptions" [ngValue]="opt.id">
+                        {{ opt.name }}{{ opt.badgeNumber ? ' (Badge No: ' + opt.badgeNumber + ')' : '' }}
+                      </option>
                     </select>
                   </div>
                   <div class="modal-error" *ngIf="teamError">{{ teamError }}</div>
@@ -901,6 +905,33 @@
                   <span class="period-range">{{ formatDisplayDate(payPeriodStart) }} to {{ formatDisplayDate(payPeriodEnd) }}</span>
                   <button type="button" class="period-nav" (click)="nextPayPeriod()">&gt;</button>
                 </div>
+                <div class="timesheet-technician" *ngIf="isAdminRole">
+                  <label for="timesheetTechnician">Technician:</label>
+                  <select
+                    id="timesheetTechnician"
+                    [ngModel]="selectedTimeSheetTechnicianId"
+                    (ngModelChange)="onTimeSheetTechnicianChange($event)"
+                    [disabled]="timeSheetTechnicianLoading"
+                  >
+                    <option [ngValue]="null">Select technician</option>
+                    <option [ngValue]="null" disabled *ngIf="timeSheetTechnicianLoading">
+                      Loading technicians...
+                    </option>
+                    <option [ngValue]="null" disabled *ngIf="!timeSheetTechnicianLoading && !timeSheetTechnicianOptions.length">
+                      No technicians found
+                    </option>
+                    <option *ngFor="let tech of timeSheetTechnicianOptions" [ngValue]="tech.id">{{ tech.name }}</option>
+                  </select>
+                </div>
+                <div class="timesheet-template-controls">
+                  <label class="timesheet-template-check">
+                    <input type="checkbox" [(ngModel)]="saveAsTemplate" />
+                    <span>Save template</span>
+                  </label>
+                  <button type="button" class="ts-btn ts-btn-ghost" (click)="applyTemplate()" [disabled]="applyingTemplate">
+                    {{ applyingTemplate ? 'Applying...' : 'Apply template' }}
+                  </button>
+                </div>
                 <div class="timesheet-deadline" *ngIf="submissionDeadlineDate">
                   <p class="timesheet-deadline-label">Submission Deadline </p>
                   <p class="timesheet-deadline-date">{{ formatCompactDate(submissionDeadlineDate) }}</p>
@@ -959,11 +990,13 @@
                         <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
                       </td>
                       <td class="timesheet-day-total">
-                        {{ getDailyTotalHours(row.date) | number:'1.0-2' }} hrs
+                        <ng-container *ngIf="shouldShowPlusForRow(row, i)">
+                          {{ getDailyTotalHours(row.date) | number:'1.0-2' }} hrs
+                        </ng-container>
                       </td>
                       <td>
                         <select [(ngModel)]="row.department">
-                          <option value="" *ngIf="timeSheetDepartmentLoading">Loading...</option>
+                          <option value="" *ngIf="timeSheetDepartmentLoading && !timeSheetDepartmentOptions.length">Loading...</option>
                           <option *ngFor="let departmentOption of timeSheetDepartmentOptions" [value]="departmentOption">
                             {{ departmentOption }}
                           </option>
@@ -971,7 +1004,7 @@
                       </td>
                       <td>
                         <select [(ngModel)]="row.account">
-                          <option value="" *ngIf="timeSheetGlAccountLoading">Loading...</option>
+                          <option value="" *ngIf="timeSheetGlAccountLoading && !timeSheetGlAccountOptions.length">Loading...</option>
                           <option *ngFor="let accountOption of timeSheetGlAccountOptions" [value]="accountOption">
                             {{ accountOption }}
                           </option>
@@ -1000,7 +1033,7 @@
                                   class="timesheet-project-option-label"
                                   style="flex: 1; height: 32px; border: 0; background: transparent; text-align: left; padding: 0 10px; cursor: pointer;"
                                   (click)="selectProjectOption(row, option)">
-                                  {{ option.name }}
+                                  {{ option.workOrderNumber || option.name }}
                                 </button>
                                 <button
                                   type="button"

@@ -46,6 +46,7 @@ export interface TimesheetSubmitPayload {
   totalPremium?: number;
   timesheet_days?: TimesheetDayPayload[];
   timesheet_rows: TimesheetRowPayload[];
+  save_as_template?: boolean;
 }
 
 export interface TimesheetRowResponse {
@@ -106,6 +107,13 @@ export class TimesheetService {
       'ngrok-skip-browser-warning': 'true'
     });
     return this.http.get(`${this.apiUrl}/technicians/${technicianId}`, { headers });
+  }
+
+  fetchRecentEntryByTechnician(technicianId: number): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/technicians/${technicianId}/recent-entry`, { headers });
   }
 
   updateTimesheet(id: number, payload: TimesheetSubmitPayload): Observable<any> {
