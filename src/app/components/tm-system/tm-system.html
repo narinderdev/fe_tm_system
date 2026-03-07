@@ -898,8 +898,9 @@
                 <div class="timesheet-period">
                   <label>View:</label>
                   <select [(ngModel)]="timeSheetView" (ngModelChange)="onTimeSheetViewChange()">
-                    <option value="WEEK">Weekly</option>
-                    <option value="BY_WEEK">By Weekly</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="BIWEEKLY">By Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
                   </select>
                   <button type="button" class="period-nav" (click)="previousPayPeriod()">&lt;</button>
                   <span class="period-range">{{ formatDisplayDate(payPeriodStart) }} to {{ formatDisplayDate(payPeriodEnd) }}</span>

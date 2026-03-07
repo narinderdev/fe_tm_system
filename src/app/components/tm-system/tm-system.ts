@@ -65,7 +65,7 @@ interface WorkOrderProjectOption {
   isFavourite: boolean;
 }
 
-type TimeSheetViewMode = 'WEEK' | 'BY_WEEK';
+type TimeSheetViewMode = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
 type TimeSheetScreenMode = 'list' | 'create';
 
 interface TimesheetListItem {
@@ -305,7 +305,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   timeSheetListLoading = false;
   timeSheetListError?: string;
   timeSheetList: TimesheetListItem[] = [];
-  timeSheetView: TimeSheetViewMode = 'BY_WEEK';
+  timeSheetView: TimeSheetViewMode = 'BIWEEKLY';
   payPeriodStart = '';
   payPeriodEnd = '';
   currentPeriodOffset = 0;
@@ -570,11 +570,24 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private setPayPeriod(offsetPeriods: number): void {
-    const periodDays = this.timeSheetView === 'WEEK' ? 7 : 14;
     const now = new Date();
     let start = new Date(now.getFullYear(), now.getMonth(), 1);
     start.setHours(0, 0, 0, 0);
 
+    if (this.timeSheetView === 'MONTHLY') {
+      start = new Date(start.getFullYear(), start.getMonth() + offsetPeriods, 1);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+      end.setHours(0, 0, 0, 0);
+
+      this.currentPeriodOffset = offsetPeriods;
+      this.payPeriodStart = this.toIsoDate(start);
+      this.payPeriodEnd = this.toIsoDate(end);
+      this.seedTimeSheetRows();
+      return;
+    }
+
+    const periodDays = this.timeSheetView === 'WEEKLY' ? 7 : 14;
     if (offsetPeriods > 0) {
       for (let i = 0; i < offsetPeriods; i += 1) {
         start = this.getNextPeriodStart(start, periodDays);
@@ -827,8 +840,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (!value) {
       return '-';
     }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
+    const date = this.parseCalendarDate(value);
+    if (!date) {
       return value;
     }
     return date.toLocaleDateString('en-US', {
@@ -843,8 +856,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (!value) {
       return '-';
     }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
+    const date = this.parseCalendarDate(value);
+    if (!date) {
       return value;
     }
     return date.toLocaleDateString('en-GB', {
@@ -859,11 +872,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (!referenceValue) {
       return '';
     }
-    const referenceDate = new Date(referenceValue);
-    if (Number.isNaN(referenceDate.getTime())) {
+    const referenceDate = this.parseCalendarDate(referenceValue);
+    if (!referenceDate) {
       return '';
     }
-    const deadline = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 2);
+    const deadline = new Date(referenceDate);
+    deadline.setDate(referenceDate.getDate() + 3);
     deadline.setHours(0, 0, 0, 0);
     return this.toIsoDate(deadline);
   }
@@ -989,12 +1003,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private seedTimeSheetRows(): void {
-    const start = new Date(this.payPeriodStart);
-    const end = new Date(this.payPeriodEnd);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    const start = this.parseCalendarDate(this.payPeriodStart);
+    const end = this.parseCalendarDate(this.payPeriodEnd);
+    if (!start || !end || start > end) {
       this.timeSheetRows = [];
       return;
     }
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
 
     const rows: TimeSheetRow[] = [];
     const cursor = new Date(start);
@@ -1354,11 +1370,29 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private dayOfWeekLabel(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
+    const date = this.parseCalendarDate(value);
+    if (!date) {
       return '';
     }
     return date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+  }
+
+  private parseCalendarDate(value: string): Date | null {
+    const raw = String(value ?? '').trim();
+    if (!raw) {
+      return null;
+    }
+    const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const year = Number(isoMatch[1]);
+      const month = Number(isoMatch[2]);
+      const day = Number(isoMatch[3]);
+      const local = new Date(year, month - 1, day);
+      local.setHours(0, 0, 0, 0);
+      return Number.isNaN(local.getTime()) ? null : local;
+    }
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private getCurrentTechnicianId(): number {
@@ -1374,15 +1408,18 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private toApiViewType(view: TimeSheetViewMode): string {
-    return view === 'WEEK' ? 'WEEK' : 'BY_WEEK';
+    return view;
   }
 
   formatTimesheetViewType(value: string): string {
     const normalized = String(value || '').trim().toUpperCase();
-    if (normalized === 'WEEK') {
+    if (normalized === 'WEEKLY' || normalized === 'WEEK') {
       return 'Weekly';
     }
-    if (normalized === 'BY_WEEK') {
+    if (normalized === 'MONTHLY' || normalized === 'MONTH') {
+      return 'Monthly';
+    }
+    if (normalized === 'BIWEEKLY' || normalized === 'BY_WEEK') {
       return 'Bi-Weekly';
     }
     return value || '-';
@@ -1543,7 +1580,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   private toTimeSheetViewMode(value: string): TimeSheetViewMode {
     const normalized = String(value ?? '').trim().toUpperCase();
-    return normalized === 'WEEK' ? 'WEEK' : 'BY_WEEK';
+    if (normalized === 'WEEKLY' || normalized === 'WEEK') {
+      return 'WEEKLY';
+    }
+    if (normalized === 'MONTHLY' || normalized === 'MONTH') {
+      return 'MONTHLY';
+    }
+    return 'BIWEEKLY';
   }
 
   private loadLeaves(): void {
