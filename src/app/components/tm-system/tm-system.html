@@ -946,8 +946,11 @@
                   <thead>
                     <tr>
                       <th>Date</th>
+                      <th>Entry Type</th>
                       <th>Pay Code</th>
+                      <th>Expense Code</th>
                       <th>Hours</th>
+                      <th>Amount</th>
                       <th>Total</th>
                       <th>Department</th>
                       <th>Account</th>
@@ -984,12 +987,27 @@
                         </div>
                       </td>
                       <td>
-                        <select [(ngModel)]="row.payCode">
+                        <select [(ngModel)]="row.entryType" (ngModelChange)="onEntryTypeChange(row)">
+                          <option value="">Select</option>
+                          <option *ngFor="let entryType of timeSheetEntryTypeOptions" [value]="entryType">{{ entryType }}</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select [(ngModel)]="row.payCode" [disabled]="row.entryType === 'EXPENSE'">
                           <option *ngFor="let code of timeSheetPayCodes" [value]="code.value">{{ code.label }}</option>
                         </select>
                       </td>
                       <td>
-                        <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
+                        <select [(ngModel)]="row.expenseCode">
+                          <option value="">Select</option>
+                          <option *ngFor="let expenseCode of timeSheetExpenseCodeOptions" [value]="expenseCode">{{ expenseCode }}</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" [disabled]="row.entryType === 'EXPENSE'" />
+                      </td>
+                      <td>
+                        <input type="text" [(ngModel)]="row.amount" placeholder="Amount" />
                       </td>
                       <td class="timesheet-day-total">
                         <ng-container *ngIf="shouldShowPlusForRow(row, i)">

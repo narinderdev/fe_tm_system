@@ -17,8 +17,11 @@ export interface TimesheetRowPayload {
 }
 
 export interface TimesheetDayRowPayload {
-  pay_code: string;
-  hours: number;
+  entry_type: string;
+  pay_code?: string;
+  hours?: number;
+  expense_code?: string;
+  expense_amount?: number;
   accounting_unit: string;
   ferc: string;
   activity: string;

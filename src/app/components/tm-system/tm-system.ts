@@ -45,10 +45,13 @@ interface TimeSheetPayCode {
 interface TimeSheetRow {
   id: number;
   date: string;
+  entryType: string;
   technicianId: number;
   workOrderId: number;
   payCode: string;
+  expenseCode: string;
   hours: number | null;
+  amount: string;
   department: string;
   account: string;
   project: string;
@@ -344,6 +347,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { value: 'DOUBLE_TIME', label: 'Double time', type: 'premium' },
     { value: 'BEREAVEMENT', label: 'Bereavement', type: 'non-worked' }
   ];
+  readonly timeSheetEntryTypeOptions: string[] = ['TIME', 'EXPENSE'];
+  readonly timeSheetExpenseCodeOptions: string[] = ['LABOR', 'TRAVEL', 'MEAL', 'MISCELLANEOUS', 'TRAINING'];
 
   timeSheetRows: TimeSheetRow[] = [];
 
@@ -482,6 +487,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
               return;
             }
 
+            this.seedTimeSheetRows();
             const draftUiRows = draftRows.map((row: any) => this.toUiTimeSheetRow(row));
             this.mergeDraftRowsIntoCurrentPeriod(draftUiRows);
             this.includePrefilledOptions(draftUiRows);
@@ -541,10 +547,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       const first = dateDraftRows[0];
       mergedRows.push({
         ...baseRow,
+        entryType: first.entryType || baseRow.entryType,
         technicianId: first.technicianId || baseRow.technicianId,
         workOrderId: first.workOrderId || 0,
         payCode: first.payCode || baseRow.payCode,
+        expenseCode: first.expenseCode || baseRow.expenseCode,
         hours: first.hours,
+        amount: first.amount || baseRow.amount,
         department: first.department || '',
         account: first.account || '',
         project: first.project || '',
@@ -839,6 +848,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       ...row,
       technicianId
     }));
+    this.seedTimeSheetRows();
     this.loadTimeSheetProjectOptions();
     this.prefillCreateTimesheetFromDraft();
   }
@@ -870,6 +880,17 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (this.openProjectDropdownRowId === row.id) {
       this.loadTimeSheetProjectOptions(source);
     }
+  }
+
+  onEntryTypeChange(row: TimeSheetRow): void {
+    const type = this.normalizeEntryType(row);
+    if (type === 'EXPENSE') {
+      row.payCode = 'REGULAR';
+      row.hours = null;
+      return;
+    }
+    row.expenseCode = '';
+    row.amount = '';
   }
 
   selectProjectOption(row: TimeSheetRow, option: WorkOrderProjectOption): void {
@@ -934,10 +955,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const nextRow: TimeSheetRow = {
       id: this.nextTimeSheetRowId++,
       date: date || this.payPeriodStart,
+      entryType: '',
       technicianId: this.getCurrentTechnicianId(),
       workOrderId: 0,
       payCode: 'REGULAR',
+      expenseCode: '',
       hours: null,
+      amount: '',
       department: '',
       account: '',
       project: '',
@@ -1098,8 +1122,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
 
     const invalidRequiredRows = this.timeSheetRows.filter((row) => {
-      const hasHoursValue = row.hours !== null && row.hours !== undefined;
-      if (!hasHoursValue) {
+      const hasHoursValue = (Number(row.hours) || 0) > 0;
+      const hasAmountValue = this.parseAmount(row.amount) > 0;
+      if (!hasHoursValue && !hasAmountValue) {
         return false;
       }
       const missingDepartment = !String(row.department ?? '').trim().length;
@@ -1115,29 +1140,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         )
       );
       const dateSuffix = invalidDates.length ? ` Date(s): ${invalidDates.join(', ')}` : '';
-      this.toastr.error(`Department and Account are required when Hours has a value.${dateSuffix}`);
+      this.toastr.error(`Department and Account are required when Hours or Amount has a value.${dateSuffix}`);
       return;
     }
 
-    const payloadRows = this.timeSheetRows
-      .filter((row) => {
-        const payCode = String(row.payCode ?? '').trim().toUpperCase();
-        const hours = Number(row.hours) || 0;
-        return payCode !== 'REGULAR' || hours > 0;
-      })
-      .map((row) => ({
-        date: row.date,
-        day_of_week: this.dayOfWeekLabel(row.date),
-        pay_code: row.payCode,
-        hours: Number(row.hours) || 0,
-        daily_total: this.getDailyTotalHours(row.date),
-        department: row.department || '',
-        account: row.account || '',
-        project: row.project || '',
-        comment: row.comment || '',
-        is_deleted: !!row.markedForDelete
-      }));
-    const payloadDays = this.buildTimesheetDaysPayload(payloadRows);
+    const payloadSourceRows = this.timeSheetRows.filter((row) => this.rowHasAnyPayloadData(row));
+    const payloadDays = this.buildTimesheetDaysPayload(payloadSourceRows);
     const workedTotal = Number(this.workedTotal) || 0;
     const nonWorkedTotal = Number(this.nonWorkedTotal) || 0;
     const premiumTotal = Number(this.premiumTotal) || 0;
@@ -1154,8 +1162,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       totalNonWorked: nonWorkedTotal,
       totalPremium: premiumTotal,
       timesheet_days: payloadDays,
-      timesheet_rows: payloadRows,
-      ...(this.saveAsTemplate ? { save_as_template: true } : {})
+      save_as_template: !!this.saveAsTemplate
     };
 
     const editingId = this.editingTimesheetId;
@@ -1222,10 +1229,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       rows.push({
         id: this.nextTimeSheetRowId++,
         date: this.toIsoDate(cursor),
+        entryType: '',
         technicianId: this.getCurrentTechnicianId(),
         workOrderId: 0,
         payCode: 'REGULAR',
+        expenseCode: '',
         hours: null,
+        amount: '',
         department: '',
         account: '',
       project: '',
@@ -1292,30 +1302,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const payloadRows = this.timeSheetRows
-      .filter((row) => {
-        const payCode = String(row.payCode ?? '').trim().toUpperCase();
-        const hours = Number(row.hours) || 0;
-        const hasDepartment = !!String(row.department ?? '').trim().length;
-        const hasAccount = !!String(row.account ?? '').trim().length;
-        const hasProject = !!String(row.project ?? '').trim().length;
-        const hasComment = !!String(row.comment ?? '').trim().length;
-        const hasNonDefaultPayCode = payCode.length > 0 && payCode !== 'REGULAR';
-        return hours > 0 || hasDepartment || hasAccount || hasProject || hasComment || hasNonDefaultPayCode || !!row.markedForDelete;
-      })
-      .map((row) => ({
-        date: row.date,
-        day_of_week: this.dayOfWeekLabel(row.date),
-        pay_code: row.payCode,
-        hours: Number(row.hours) || 0,
-        daily_total: this.getDailyTotalHours(row.date),
-        department: row.department || '',
-        account: row.account || '',
-        project: row.project || '',
-        comment: row.comment || '',
-        is_deleted: !!row.markedForDelete
-      }));
-    const payloadDays = this.buildTimesheetDaysPayload(payloadRows);
+    const payloadSourceRows = this.timeSheetRows.filter((row) => this.rowHasAnyPayloadData(row));
+    const payloadDays = this.buildTimesheetDaysPayload(payloadSourceRows);
     const payload = {
       period_start_date: this.payPeriodStart,
       period_end_date: this.payPeriodEnd,
@@ -1797,13 +1785,19 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private toUiTimeSheetRow(row: any): TimeSheetRow {
+    const inferredEntryType = String(row?.entry_type ?? row?.entryType ?? '').trim().toUpperCase();
+    const normalizedEntryType = inferredEntryType
+      || (row?.expense_code || row?.expenseCode || row?.expense_amount || row?.expenseAmount ? 'EXPENSE' : 'TIME');
     return {
       id: this.nextTimeSheetRowId++,
       date: row?.date ?? this.payPeriodStart,
+      entryType: normalizedEntryType,
       technicianId: Number(row?.technician_id ?? row?.technicianId) || this.getCurrentTechnicianId(),
       workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
       payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
+      expenseCode: String(row?.expense_code ?? row?.expenseCode ?? '').trim(),
       hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
+      amount: String(row?.amount ?? row?.expense_amount ?? row?.expenseAmount ?? '').trim(),
       department: row?.department ?? row?.accounting_unit ?? row?.accountingUnit ?? '',
       account: row?.account ?? row?.ferc ?? '',
       project: row?.project ?? row?.activity ?? '',
@@ -1814,24 +1808,16 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     };
   }
 
-  private buildTimesheetDaysPayload(rows: Array<{
-    date: string;
-    day_of_week: string;
-    pay_code: string;
-    hours: number;
-    daily_total: number;
-    department: string;
-    account: string;
-    project: string;
-    comment: string;
-    is_deleted: boolean;
-  }>): Array<{
+  private buildTimesheetDaysPayload(rows: TimeSheetRow[]): Array<{
     date: string;
     day_of_week: string;
     daily_total: number;
     rows: Array<{
-      pay_code: string;
-      hours: number;
+      entry_type: string;
+      pay_code?: string;
+      hours?: number;
+      expense_code?: string;
+      expense_amount?: number;
       accounting_unit: string;
       ferc: string;
       activity: string;
@@ -1839,7 +1825,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       is_deleted: boolean;
     }>;
   }> {
-    const grouped = new Map<string, typeof rows>();
+    const grouped = new Map<string, TimeSheetRow[]>();
     rows.forEach((row) => {
       const key = String(row.date ?? '');
       const list = grouped.get(key) ?? [];
@@ -1850,22 +1836,89 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     return Array.from(grouped.entries())
       .sort(([a], [b]) => String(a).localeCompare(String(b)))
       .map(([date, dayRows]) => {
-        const dailyTotal = Number(dayRows.reduce((sum, row) => sum + (Number(row.hours) || 0), 0).toFixed(2));
+        const dailyTotal = Number(dayRows.reduce((sum, row) => sum + this.rowContribution(row), 0).toFixed(2));
         return {
           date,
           day_of_week: this.dayOfWeekLabel(date),
           daily_total: dailyTotal,
-          rows: dayRows.map((row) => ({
-            pay_code: row.pay_code,
-            hours: Number(row.hours) || 0,
-            accounting_unit: row.department || '',
-            ferc: row.account || '',
-            activity: row.project || '',
-            comment: row.comment || '',
-            is_deleted: !!row.is_deleted
-          }))
+          rows: dayRows.map((row) => {
+            const entryType = this.normalizeEntryType(row);
+            const base = {
+              entry_type: entryType,
+              accounting_unit: row.department || '',
+              ferc: row.account || '',
+              activity: row.project || '',
+              comment: row.comment || '',
+              is_deleted: !!row.markedForDelete
+            };
+            if (entryType === 'EXPENSE') {
+              return {
+                ...base,
+                expense_code: String(row.expenseCode ?? '').trim().toUpperCase(),
+                expense_amount: this.parseAmount(row.amount)
+              };
+            }
+            return {
+              ...base,
+              pay_code: this.normalizePayCode(row.payCode),
+              hours: Number(row.hours) || 0
+            };
+          })
         };
       });
+  }
+
+  private rowHasAnyPayloadData(row: TimeSheetRow): boolean {
+    const payCode = String(row.payCode ?? '').trim().toUpperCase();
+    const hours = Number(row.hours) || 0;
+    const hasDepartment = !!String(row.department ?? '').trim().length;
+    const hasAccount = !!String(row.account ?? '').trim().length;
+    const hasProject = !!String(row.project ?? '').trim().length;
+    const hasComment = !!String(row.comment ?? '').trim().length;
+    const hasEntryType = !!String(row.entryType ?? '').trim().length;
+    const hasExpenseCode = !!String(row.expenseCode ?? '').trim().length;
+    const hasAmount = !!String(row.amount ?? '').trim().length;
+    const hasNonDefaultPayCode = payCode.length > 0 && payCode !== 'REGULAR';
+    return hours > 0 || hasDepartment || hasAccount || hasProject || hasComment || hasEntryType || hasExpenseCode || hasAmount || hasNonDefaultPayCode || !!row.markedForDelete;
+  }
+
+  private normalizeEntryType(row: TimeSheetRow): 'TIME' | 'EXPENSE' {
+    const explicit = String(row.entryType ?? '').trim().toUpperCase();
+    if (explicit === 'EXPENSE') {
+      return 'EXPENSE';
+    }
+    if (explicit === 'TIME') {
+      return 'TIME';
+    }
+    if (this.parseAmount(row.amount) > 0 || !!String(row.expenseCode ?? '').trim().length) {
+      return 'EXPENSE';
+    }
+    return 'TIME';
+  }
+
+  private parseAmount(value: string | number | null | undefined): number {
+    const raw = String(value ?? '').trim().replace(/,/g, '');
+    if (!raw.length) {
+      return 0;
+    }
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(2)) : 0;
+  }
+
+  private normalizePayCode(payCode: string): string {
+    const normalized = String(payCode ?? '').trim().toUpperCase();
+    if (normalized === 'REGULAR') {
+      return 'REG';
+    }
+    return normalized;
+  }
+
+  private rowContribution(row: TimeSheetRow): number {
+    const entryType = this.normalizeEntryType(row);
+    if (entryType === 'EXPENSE') {
+      return this.parseAmount(row.amount);
+    }
+    return Number(row.hours) || 0;
   }
 
   private toTimeSheetViewMode(value: string): TimeSheetViewMode {
