@@ -6,6 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 import { TimesheetService } from '../../services/timesheet.service';
 
 interface TimesheetDetailRow {
+  id?: number;
   date: string;
   dayOfWeek: string;
   payCode: string;
@@ -30,13 +31,22 @@ export class TimesheetViewComponent implements OnInit {
   error?: string;
   showApproveConfirm = false;
   approving = false;
+  sendingBack = false;
 
   timesheetId = 0;
   periodStartDate = '-';
   periodEndDate = '-';
+  deadlineDate = '-';
+  lockDate = '-';
+  payPeriodStatus = '-';
+  adminUnlocked = false;
   viewType = '-';
   status = '-';
   technicianId = 1;
+  technicianFirstName = '';
+  technicianLastName = '';
+  technicianName = '';
+  saveAsTemplate = false;
   totalWorked = 0;
   totalNonWorked = 0;
   totalPremium = 0;
@@ -159,6 +169,62 @@ export class TimesheetViewComponent implements OnInit {
     this.showApproveConfirm = true;
   }
 
+  returnForCorrection(): void {
+    if (this.sendingBack || !this.timesheetId) {
+      return;
+    }
+
+    const payload = {
+      id: this.timesheetId,
+      period_start_date: this.periodStartDate,
+      period_end_date: this.periodEndDate,
+      deadline_date: this.deadlineDate,
+      lock_date: this.lockDate,
+      pay_period_status: this.payPeriodStatus,
+      admin_unlocked: !!this.adminUnlocked,
+      view_type: this.viewType,
+      technician_id: this.technicianId,
+      technician_first_name: this.technicianFirstName,
+      technician_last_name: this.technicianLastName,
+      technician_name: this.technicianName,
+      total_worked: Number(this.totalWorked) || 0,
+      total_non_worked: Number(this.totalNonWorked) || 0,
+      total_premium: Number(this.totalPremium) || 0,
+      status: this.status,
+      save_as_template: !!this.saveAsTemplate,
+      timesheet_days: this.buildTimesheetDaysPayload()
+    };
+
+    this.sendingBack = true;
+    this.cdr.detectChanges();
+    this.timesheetService
+      .sendBackTimesheet(this.timesheetId, payload)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.sendingBack = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.toastr.success('Timesheet returned for correction.');
+            this.backToList();
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.toastr.error('Failed to return timesheet for correction.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
   cancelApprove(): void {
     if (this.approving) {
       return;
@@ -255,9 +321,17 @@ export class TimesheetViewComponent implements OnInit {
             const data = response?.data ?? response;
             this.periodStartDate = data?.period_start_date ?? data?.periodStartDate ?? '-';
             this.periodEndDate = data?.period_end_date ?? data?.periodEndDate ?? '-';
+            this.deadlineDate = data?.deadline_date ?? data?.deadlineDate ?? this.periodEndDate;
+            this.lockDate = data?.lock_date ?? data?.lockDate ?? this.periodEndDate;
+            this.payPeriodStatus = String(data?.pay_period_status ?? data?.payPeriodStatus ?? '').trim();
             this.viewType = String(data?.view_type ?? data?.viewType ?? '-');
             this.status = String(data?.status ?? '-').trim().toUpperCase();
             this.technicianId = Number(data?.technician_id ?? data?.technicianId) || 1;
+            this.technicianFirstName = String(data?.technician_first_name ?? data?.technicianFirstName ?? '').trim();
+            this.technicianLastName = String(data?.technician_last_name ?? data?.technicianLastName ?? '').trim();
+            this.technicianName = String(data?.technician_name ?? data?.technicianName ?? '').trim();
+            this.saveAsTemplate = !!(data?.save_as_template ?? data?.saveAsTemplate);
+            this.adminUnlocked = !!(data?.admin_unlocked ?? data?.adminUnlocked);
             const rawWorked = data?.totalWorked ?? data?.total_worked;
             const rawNonWorked = data?.totalNonWorked ?? data?.total_non_worked;
             const rawPremium = data?.totalPremium ?? data?.total_premium;
@@ -269,6 +343,7 @@ export class TimesheetViewComponent implements OnInit {
             const sourceRows = this.normalizeRowsFromTimesheetData(data);
 
             this.rows = sourceRows.map((row: any) => ({
+              id: Number(row?.id) || undefined,
               date: row?.date ?? '-',
               dayOfWeek: row?.day_of_week ?? row?.dayOfWeek ?? '-',
               payCode: row?.pay_code ?? row?.payCode ?? '-',
@@ -343,6 +418,52 @@ export class TimesheetViewComponent implements OnInit {
         day_of_week: row?.day_of_week ?? row?.dayOfWeek ?? dayOfWeek,
         daily_total: row?.daily_total ?? row?.dailyTotal ?? dailyTotal
       }));
+      });
+  }
+
+  private buildTimesheetDaysPayload(): Array<{
+    date: string;
+    day_of_week: string;
+    daily_total: number;
+    rows: Array<{
+      id: number;
+      pay_code: string;
+      hours: number;
+      accounting_unit: string;
+      ferc: string;
+      activity: string;
+      comment: string;
+      is_deleted: boolean;
+    }>;
+  }> {
+    const grouped = new Map<string, TimesheetDetailRow[]>();
+    this.rows.forEach((row) => {
+      const key = String(row.date ?? '').trim();
+      if (!key) {
+        return;
+      }
+      const list = grouped.get(key) ?? [];
+      list.push(row);
+      grouped.set(key, list);
+    });
+
+    return Array.from(grouped.entries()).map(([date, dayRows]) => {
+      const dailyTotal = Number(dayRows.reduce((sum, row) => sum + (Number(row.hours) || 0), 0).toFixed(2));
+      return {
+        date,
+        day_of_week: String(dayRows[0]?.dayOfWeek ?? ''),
+        daily_total: dailyTotal,
+        rows: dayRows.map((row) => ({
+          id: Number(row.id) || 0,
+          pay_code: String(row.payCode ?? ''),
+          hours: Number(row.hours) || 0,
+          accounting_unit: String(row.department ?? ''),
+          ferc: String(row.account ?? ''),
+          activity: String(row.project ?? ''),
+          comment: String(row.comment ?? ''),
+          is_deleted: !!row.isDeleted
+        }))
+      };
     });
   }
 }

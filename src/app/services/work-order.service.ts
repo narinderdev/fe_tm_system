@@ -376,6 +376,13 @@ export class WorkOrderService {
     return this.http.get(`${this.apiUrl}/numbers`, { params, headers });
   }
 
+  fetchCapexWorkOrderNumbers(): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/numbers/capex`, { headers });
+  }
+
   fetchWorkOrderTypes(page: number, size: number): Observable<WorkOrderTypeResponse> {
     const params = new HttpParams()
       .set('page', page.toString())

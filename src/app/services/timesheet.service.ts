@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -45,7 +45,7 @@ export interface TimesheetSubmitPayload {
   totalNonWorked?: number;
   totalPremium?: number;
   timesheet_days?: TimesheetDayPayload[];
-  timesheet_rows: TimesheetRowPayload[];
+  timesheet_rows?: TimesheetRowPayload[];
   save_as_template?: boolean;
 }
 
@@ -88,6 +88,14 @@ export class TimesheetService {
     return this.http.post(this.apiUrl, payload, { headers });
   }
 
+  saveTimesheetDraft(technicianId: number, payload: TimesheetSubmitPayload): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    const params = new HttpParams().set('technicianId', String(technicianId));
+    return this.http.post(`${this.apiUrl}/drafts`, payload, { headers, params });
+  }
+
   fetchTimesheetById(id: number): Observable<any> {
     const headers = new HttpHeaders({
       'ngrok-skip-browser-warning': 'true'
@@ -116,6 +124,14 @@ export class TimesheetService {
     return this.http.get(`${this.apiUrl}/technicians/${technicianId}/recent-entry`, { headers });
   }
 
+  fetchDraftByTechnicianAndPeriod(technicianId: number, periodStartDate: string, periodEndDate: string): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    const query = `period_start_date=${encodeURIComponent(periodStartDate)}&period_end_date=${encodeURIComponent(periodEndDate)}`;
+    return this.http.get(`${this.apiUrl}/drafts/technicians/${technicianId}?${query}`, { headers });
+  }
+
   updateTimesheet(id: number, payload: TimesheetSubmitPayload): Observable<any> {
     const headers = new HttpHeaders({
       'ngrok-skip-browser-warning': 'true'
@@ -128,5 +144,12 @@ export class TimesheetService {
       'ngrok-skip-browser-warning': 'true'
     });
     return this.http.post(`${this.apiUrl}/${id}/approve`, {}, { headers });
+  }
+
+  sendBackTimesheet(id: number, payload: any): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.post(`${this.apiUrl}/${id}/send-back`, payload, { headers });
   }
 }

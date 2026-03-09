@@ -1083,6 +1083,32 @@ td:nth-child(7) {
   font-weight: 600;
 }
 
+.period-nav {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #bfccdd;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.period-nav:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.period-nav:disabled {
+  opacity: 0.45;
+  color: #94a3b8;
+  border-color: #dbe4ef;
+  background: #f1f5f9;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .timesheet-technician {
   display: flex;
   align-items: center;
@@ -1175,8 +1201,9 @@ td:nth-child(7) {
 }
 
 .timesheet-table {
-  min-width: 1700px;
-  width: max-content;
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -1205,18 +1232,41 @@ td:nth-child(7) {
 
 .timesheet-table th:nth-child(2),
 .timesheet-table td:nth-child(2) {
-  min-width: 220px;
-  width: 220px;
+  width: 13%;
 }
 
 .timesheet-table th:nth-child(3),
 .timesheet-table td:nth-child(3) {
-  min-width: 160px;
-  width: 160px;
+  width: 10%;
 }
 
 .timesheet-table .timesheet-comment-col {
-  min-width: 460px;
+  width: 25%;
+}
+
+.timesheet-table th:nth-child(1),
+.timesheet-table td:nth-child(1) {
+  width: 18%;
+}
+
+.timesheet-table th:nth-child(4),
+.timesheet-table td:nth-child(4) {
+  width: 7%;
+}
+
+.timesheet-table th:nth-child(5),
+.timesheet-table td:nth-child(5) {
+  width: 10%;
+}
+
+.timesheet-table th:nth-child(6),
+.timesheet-table td:nth-child(6) {
+  width: 10%;
+}
+
+.timesheet-table th:nth-child(7),
+.timesheet-table td:nth-child(7) {
+  width: 9%;
 }
 
 .timesheet-table td {
@@ -1255,6 +1305,18 @@ td:nth-child(7) {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.timesheet-date-cell input[type='date'] {
+  min-width: 0;
+  flex: 1;
+}
+
+.timesheet-date-hidden {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
 }
 
 .timesheet-row-actions {
@@ -1333,7 +1395,7 @@ td:nth-child(7) {
 }
 
 .timesheet-comment-input {
-  min-width: 420px;
+  min-width: 0;
 }
 
 .delete-cell {
@@ -1401,6 +1463,7 @@ td:nth-child(7) {
 .timesheet-submit-wrap {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   margin-top: 14px;
 }
 

@@ -65,6 +65,8 @@ interface WorkOrderProjectOption {
   isFavourite: boolean;
 }
 
+type ProjectOptionsSource = 'default' | 'capex';
+
 type TimeSheetViewMode = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
 type TimeSheetScreenMode = 'list' | 'create';
 
@@ -311,10 +313,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   currentPeriodOffset = 0;
   nextTimeSheetRowId = 1;
   timesheetSubmitting = false;
+  timesheetDraftSubmitting = false;
   editingTimesheetId?: number;
   timeSheetEditLoading = false;
   timeSheetProjectOptions: WorkOrderProjectOption[] = [];
   timeSheetProjectOptionsLoading = false;
+  private loadedProjectOptionsSource?: ProjectOptionsSource;
   timeSheetTechnicianOptions: Array<{ id: number; name: string }> = [];
   timeSheetTechnicianLoading = false;
   selectedTimeSheetTechnicianId: number | null = null;
@@ -436,7 +440,6 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.openProjectDropdownRowId = undefined;
     this.saveAsTemplate = false;
     if (this.isAdminRole) {
-      this.selectedTimeSheetTechnicianId = null;
       this.loadTimeSheetTechnicianOptions();
     }
     if (!this.timeSheetReady) {
@@ -449,6 +452,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.loadTimeSheetDepartmentOptions();
     this.loadTimeSheetGlAccountOptions();
     this.timeSheetScreenMode = 'create';
+    this.prefillCreateTimesheetFromDraft();
   }
 
   openTimeSheetList(): void {
@@ -456,6 +460,135 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.timeSheetEditLoading = false;
     this.timeSheetScreenMode = 'list';
     this.loadTimesheetList();
+  }
+
+  private prefillCreateTimesheetFromDraft(): void {
+    const technicianId = this.getCurrentTechnicianId();
+    const periodStart = String(this.payPeriodStart ?? '').trim();
+    const periodEnd = String(this.payPeriodEnd ?? '').trim();
+    if (!technicianId || technicianId <= 0 || !periodStart || !periodEnd) {
+      return;
+    }
+
+    this.timesheetService
+      .fetchDraftByTechnicianAndPeriod(technicianId, periodStart, periodEnd)
+      .pipe(take(1))
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            const data = response?.data ?? response ?? {};
+            const draftRows = this.normalizeTimeSheetRowsFromData(data);
+            if (!draftRows.length) {
+              return;
+            }
+
+            const draftUiRows = draftRows.map((row: any) => this.toUiTimeSheetRow(row));
+            this.mergeDraftRowsIntoCurrentPeriod(draftUiRows);
+            this.includePrefilledOptions(draftUiRows);
+            this.saveAsTemplate = !!(data?.save_as_template ?? data?.saveAsTemplate);
+
+            const normalizedView = this.toTimeSheetViewMode(data?.view_type ?? data?.viewType);
+            if (normalizedView) {
+              this.timeSheetView = normalizedView;
+            }
+
+            if (this.isAdminRole) {
+              const selectedId = Number(data?.technician_id ?? data?.technicianId ?? draftRows[0]?.technician_id ?? draftRows[0]?.technicianId);
+              this.selectedTimeSheetTechnicianId = Number.isFinite(selectedId) && selectedId > 0 ? selectedId : this.selectedTimeSheetTechnicianId;
+            }
+
+            this.loadTimeSheetProjectOptions();
+            this.cdr.detectChanges();
+          });
+        },
+        error: (err: any) => {
+          if (Number(err?.status) !== 404) {
+            return;
+          }
+          this.zone.run(() => {
+            // If draft is not found, reset to empty rows for the selected period.
+            this.seedTimeSheetRows();
+            this.saveAsTemplate = false;
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private mergeDraftRowsIntoCurrentPeriod(draftUiRows: TimeSheetRow[]): void {
+    if (!this.timeSheetRows.length) {
+      this.timeSheetRows = draftUiRows;
+      return;
+    }
+
+    const groupedDraftRows = new Map<string, TimeSheetRow[]>();
+    draftUiRows.forEach((row) => {
+      const key = this.toDateKey(row.date);
+      const list = groupedDraftRows.get(key) ?? [];
+      list.push(row);
+      groupedDraftRows.set(key, list);
+    });
+
+    const mergedRows: TimeSheetRow[] = [];
+    this.timeSheetRows.forEach((baseRow) => {
+      const key = this.toDateKey(baseRow.date);
+      const dateDraftRows = groupedDraftRows.get(key) ?? [];
+      if (!dateDraftRows.length) {
+        mergedRows.push(baseRow);
+        return;
+      }
+
+      const first = dateDraftRows[0];
+      mergedRows.push({
+        ...baseRow,
+        technicianId: first.technicianId || baseRow.technicianId,
+        workOrderId: first.workOrderId || 0,
+        payCode: first.payCode || baseRow.payCode,
+        hours: first.hours,
+        department: first.department || '',
+        account: first.account || '',
+        project: first.project || '',
+        comment: first.comment || '',
+        markedForDelete: !!first.markedForDelete,
+        isExtraRow: false,
+        isNewlyAdded: false
+      });
+
+      dateDraftRows.slice(1).forEach((extraRow) => {
+        mergedRows.push({
+          ...extraRow,
+          date: baseRow.date,
+          isExtraRow: true,
+          isNewlyAdded: false
+        });
+      });
+    });
+
+    this.timeSheetRows = mergedRows;
+  }
+
+  private includePrefilledOptions(rows: TimeSheetRow[]): void {
+    const departments = Array.from(
+      new Set(
+        rows
+          .map((row) => String(row.department ?? '').trim())
+          .filter((value) => !!value)
+      )
+    );
+    const accounts = Array.from(
+      new Set(
+        rows
+          .map((row) => String(row.account ?? '').trim())
+          .filter((value) => !!value)
+      )
+    );
+
+    if (departments.length) {
+      this.timeSheetDepartmentOptions = Array.from(new Set([...departments, ...this.timeSheetDepartmentOptions]));
+    }
+    if (accounts.length) {
+      this.timeSheetGlAccountOptions = Array.from(new Set([...accounts, ...this.timeSheetGlAccountOptions]));
+    }
   }
 
   loadTimesheetList(): void {
@@ -644,11 +777,40 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   previousPayPeriod(): void {
+    if (!this.canGoPreviousPayPeriod) {
+      return;
+    }
     this.setPayPeriod(this.currentPeriodOffset - 1);
   }
 
   nextPayPeriod(): void {
     this.setPayPeriod(this.currentPeriodOffset + 1);
+  }
+
+  get canGoPreviousPayPeriod(): boolean {
+    const start = this.parseCalendarDate(this.payPeriodStart);
+    if (!start) {
+      return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let previousPeriodStart: Date;
+    let previousPeriodEnd: Date;
+
+    if (this.timeSheetView === 'MONTHLY') {
+      previousPeriodStart = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+      previousPeriodStart.setHours(0, 0, 0, 0);
+      previousPeriodEnd = new Date(previousPeriodStart.getFullYear(), previousPeriodStart.getMonth() + 1, 0);
+      previousPeriodEnd.setHours(0, 0, 0, 0);
+    } else {
+      const periodDays = this.timeSheetView === 'WEEKLY' ? 7 : 14;
+      previousPeriodStart = this.getPreviousPeriodStart(start, periodDays);
+      previousPeriodEnd = this.getPeriodEndDate(previousPeriodStart, periodDays);
+    }
+
+    return previousPeriodEnd >= today;
   }
 
   onTimeSheetViewChange(): void {
@@ -663,6 +825,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const selectedId = Number(value);
     this.selectedTimeSheetTechnicianId = Number.isFinite(selectedId) && selectedId > 0 ? selectedId : null;
     this.timeSheetProjectOptions = [];
+    this.loadedProjectOptionsSource = undefined;
     this.openProjectDropdownRowId = undefined;
     const technicianId = this.getCurrentTechnicianId();
     if (!technicianId) {
@@ -677,13 +840,35 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       technicianId
     }));
     this.loadTimeSheetProjectOptions();
+    this.prefillCreateTimesheetFromDraft();
   }
 
   toggleProjectDropdown(rowId: number, event: MouseEvent): void {
     event.stopPropagation();
-    this.openProjectDropdownRowId = this.openProjectDropdownRowId === rowId ? undefined : rowId;
-    if (!this.timeSheetProjectOptions.length) {
-      this.loadTimeSheetProjectOptions();
+    const isClosing = this.openProjectDropdownRowId === rowId;
+    this.openProjectDropdownRowId = isClosing ? undefined : rowId;
+    if (isClosing) {
+      return;
+    }
+
+    const row = this.timeSheetRows.find((item) => item.id === rowId);
+    const source = this.resolveProjectOptionsSource(row?.account);
+    const shouldReload = !this.timeSheetProjectOptions.length || this.loadedProjectOptionsSource !== source;
+    if (shouldReload) {
+      this.loadTimeSheetProjectOptions(source);
+    }
+  }
+
+  onAccountChange(row: TimeSheetRow): void {
+    row.project = '';
+    row.workOrderId = 0;
+    const source = this.resolveProjectOptionsSource(row.account);
+    if (this.loadedProjectOptionsSource !== source) {
+      this.timeSheetProjectOptions = [];
+      this.loadedProjectOptionsSource = undefined;
+    }
+    if (this.openProjectDropdownRowId === row.id) {
+      this.loadTimeSheetProjectOptions(source);
     }
   }
 
@@ -792,9 +977,6 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   canDeleteRow(row: TimeSheetRow, _index: number): boolean {
-    if (row.isExtraRow) {
-      return true;
-    }
     return this.getDateRowCount(row.date) > 1;
   }
 
@@ -907,11 +1089,33 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   sendForApproval(): void {
-    if (this.timesheetSubmitting) {
+    if (this.timesheetSubmitting || this.timesheetDraftSubmitting) {
       return;
     }
     if (this.isAdminRole && !this.getCurrentTechnicianId()) {
       this.toastr.error('Please select a technician.');
+      return;
+    }
+
+    const invalidRequiredRows = this.timeSheetRows.filter((row) => {
+      const hasHoursValue = row.hours !== null && row.hours !== undefined;
+      if (!hasHoursValue) {
+        return false;
+      }
+      const missingDepartment = !String(row.department ?? '').trim().length;
+      const missingAccount = !String(row.account ?? '').trim().length;
+      return missingDepartment || missingAccount;
+    });
+    if (invalidRequiredRows.length) {
+      const invalidDates = Array.from(
+        new Set(
+          invalidRequiredRows
+            .map((row) => this.formatDate(row.date))
+            .filter((value) => !!String(value ?? '').trim().length)
+        )
+      );
+      const dateSuffix = invalidDates.length ? ` Date(s): ${invalidDates.join(', ')}` : '';
+      this.toastr.error(`Department and Account are required when Hours has a value.${dateSuffix}`);
       return;
     }
 
@@ -1035,19 +1239,22 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.timeSheetRows = rows;
   }
 
-  private loadTimeSheetProjectOptions(): void {
+  private loadTimeSheetProjectOptions(source: ProjectOptionsSource = 'default'): void {
     if (this.timeSheetProjectOptionsLoading) {
       return;
     }
     const technicianId = this.getCurrentTechnicianId();
     if (!technicianId || technicianId <= 0) {
       this.timeSheetProjectOptions = [];
+      this.loadedProjectOptionsSource = undefined;
       return;
     }
 
     this.timeSheetProjectOptionsLoading = true;
-    this.workOrderService
-      .fetchWorkOrderNumbers(technicianId)
+    const request$ = source === 'capex'
+      ? this.workOrderService.fetchCapexWorkOrderNumbers()
+      : this.workOrderService.fetchWorkOrderNumbers(technicianId);
+    request$
       .pipe(
         take(1),
         finalize(() => {
@@ -1061,16 +1268,97 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: (response: any) => {
           this.zone.run(() => {
             this.timeSheetProjectOptions = this.normalizeProjectOptions(response);
+            this.loadedProjectOptionsSource = source;
             this.cdr.detectChanges();
           });
         },
         error: () => {
           this.zone.run(() => {
             this.timeSheetProjectOptions = [];
+            this.loadedProjectOptionsSource = undefined;
             this.cdr.detectChanges();
           });
         }
       });
+  }
+
+  saveTimesheetDraft(): void {
+    if (this.timesheetSubmitting || this.timesheetDraftSubmitting) {
+      return;
+    }
+    const technicianId = this.getCurrentTechnicianId();
+    if (!technicianId) {
+      this.toastr.error('Please select a technician.');
+      return;
+    }
+
+    const payloadRows = this.timeSheetRows
+      .filter((row) => {
+        const payCode = String(row.payCode ?? '').trim().toUpperCase();
+        const hours = Number(row.hours) || 0;
+        const hasDepartment = !!String(row.department ?? '').trim().length;
+        const hasAccount = !!String(row.account ?? '').trim().length;
+        const hasProject = !!String(row.project ?? '').trim().length;
+        const hasComment = !!String(row.comment ?? '').trim().length;
+        const hasNonDefaultPayCode = payCode.length > 0 && payCode !== 'REGULAR';
+        return hours > 0 || hasDepartment || hasAccount || hasProject || hasComment || hasNonDefaultPayCode || !!row.markedForDelete;
+      })
+      .map((row) => ({
+        date: row.date,
+        day_of_week: this.dayOfWeekLabel(row.date),
+        pay_code: row.payCode,
+        hours: Number(row.hours) || 0,
+        daily_total: this.getDailyTotalHours(row.date),
+        department: row.department || '',
+        account: row.account || '',
+        project: row.project || '',
+        comment: row.comment || '',
+        is_deleted: !!row.markedForDelete
+      }));
+    const payloadDays = this.buildTimesheetDaysPayload(payloadRows);
+    const payload = {
+      period_start_date: this.payPeriodStart,
+      period_end_date: this.payPeriodEnd,
+      view_type: this.toApiViewType(this.timeSheetView),
+      technician_id: technicianId,
+      total_worked: Number(this.workedTotal) || 0,
+      total_non_worked: Number(this.nonWorkedTotal) || 0,
+      total_premium: Number(this.premiumTotal) || 0,
+      timesheet_days: payloadDays,
+      save_as_template: !!this.saveAsTemplate
+    };
+
+    this.timesheetDraftSubmitting = true;
+    this.timesheetService
+      .saveTimesheetDraft(technicianId, payload)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timesheetDraftSubmitting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.toastr.success('Timesheet draft saved.');
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.toastr.error('Failed to save timesheet draft.');
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private resolveProjectOptionsSource(account?: string | null): ProjectOptionsSource {
+    const normalized = String(account ?? '').trim();
+    return normalized === '10700' ? 'capex' : 'default';
   }
 
   applyTemplate(): void {
@@ -1210,7 +1498,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response: any) => {
           this.zone.run(() => {
-            this.timeSheetGlAccountOptions = this.normalizeGlAccountOptions(response);
+            const apiOptions = this.normalizeGlAccountOptions(response);
+            this.timeSheetGlAccountOptions = Array.from(new Set([...this.timeSheetGlAccountOptions, ...apiOptions]));
             this.timeSheetGlAccountLoading = false;
             this.cdr.detectChanges();
           });
@@ -1246,7 +1535,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response: any) => {
           this.zone.run(() => {
-            this.timeSheetDepartmentOptions = this.normalizeDepartmentOptions(response);
+            const apiOptions = this.normalizeDepartmentOptions(response);
+            this.timeSheetDepartmentOptions = Array.from(new Set([...this.timeSheetDepartmentOptions, ...apiOptions]));
             this.timeSheetDepartmentLoading = false;
             this.cdr.detectChanges();
           });
@@ -1514,7 +1804,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
       payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
       hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
-      department: row?.department ?? row?.accounting_unit ?? '',
+      department: row?.department ?? row?.accounting_unit ?? row?.accountingUnit ?? '',
       account: row?.account ?? row?.ferc ?? '',
       project: row?.project ?? row?.activity ?? '',
       comment: row?.comment ?? '',

@@ -12,8 +12,10 @@
 .vt-page {
   min-height: 100vh;
   padding: clamp(16px, 3.2vw, 32px);
-  max-width: 1320px;
-  margin: 0 auto;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 14px;

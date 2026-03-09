@@ -244,8 +244,8 @@ test.describe('TM module', () => {
     await rows.nth(1).locator('input[type="number"]').fill('2');
 
     await expect(page.locator('.timesheet-total-line strong')).toHaveText('10.00');
-    await expect(page.getByRole('button', { name: 'Send for Approval' })).toBeVisible();
-    await page.getByRole('button', { name: 'Send for Approval' }).click();
+    await expect(page.getByRole('button', { name: 'Submit for Approval' })).toBeVisible();
+    await page.getByRole('button', { name: 'Submit for Approval' }).click();
 
     await expect.poll(() => submittedPayload).toBeTruthy();
     expect(submittedPayload.technician_id).toBe(42);
