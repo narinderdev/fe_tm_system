@@ -941,8 +941,9 @@
                 </div>
               </div>
 
-              <div class="table-wrapper timesheet-table-wrap">
-                <table class="timesheet-table">
+              <div class="timesheet-table-shell">
+                <div class="table-wrapper timesheet-table-wrap" #timesheetTableWrap (scroll)="onTimesheetTableScroll()">
+                  <table class="timesheet-table">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -1077,7 +1078,11 @@
                       </td>
                     </tr>
                   </tbody>
-                </table>
+                  </table>
+                </div>
+                <div class="timesheet-scroll-cue" *ngIf="showTimesheetScrollHint" aria-hidden="true">
+                  <span class="timesheet-scroll-cue-chip">&rarr;</span>
+                </div>
               </div>
 
               <div class="timesheet-total-line">

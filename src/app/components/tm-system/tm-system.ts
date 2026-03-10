@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ChangeDetectorRef, NgZone, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef, NgZone, HostListener, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -351,6 +351,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   readonly timeSheetExpenseCodeOptions: string[] = ['LABOR', 'TRAVEL', 'MEAL', 'MISCELLANEOUS', 'TRAINING'];
 
   timeSheetRows: TimeSheetRow[] = [];
+  @ViewChild('timesheetTableWrap') private timesheetTableWrap?: ElementRef<HTMLDivElement>;
+  showTimesheetScrollHint = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -380,6 +382,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.scheduleTimesheetScrollStateUpdate();
   }
 
   selectTab(id: TabId) {
@@ -458,12 +465,15 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.loadTimeSheetGlAccountOptions();
     this.timeSheetScreenMode = 'create';
     this.prefillCreateTimesheetFromDraft();
+    this.scheduleTimesheetScrollStateUpdate();
+    this.scheduleTimesheetScrollStateUpdate(220);
   }
 
   openTimeSheetList(): void {
     this.editingTimesheetId = undefined;
     this.timeSheetEditLoading = false;
     this.timeSheetScreenMode = 'list';
+    this.showTimesheetScrollHint = false;
     this.loadTimesheetList();
   }
 
@@ -700,6 +710,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             this.loadTimeSheetGlAccountOptions();
             this.timeSheetScreenMode = 'create';
             this.cdr.detectChanges();
+            this.scheduleTimesheetScrollStateUpdate();
+            this.scheduleTimesheetScrollStateUpdate(220);
           });
         },
         error: () => {
@@ -951,6 +963,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.openProjectDropdownRowId = undefined;
   }
 
+  onTimesheetTableScroll(): void {
+    this.updateTimesheetScrollState();
+  }
+
   addTimeSheetRow(date?: string, insertAfterIndex?: number): void {
     const nextRow: TimeSheetRow = {
       id: this.nextTimeSheetRowId++,
@@ -977,6 +993,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     } else {
       this.timeSheetRows.push(nextRow);
     }
+    this.scheduleTimesheetScrollStateUpdate();
 
     setTimeout(() => {
       const row = this.timeSheetRows.find((item) => item.id === nextRow.id);
@@ -994,6 +1011,25 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return;
     }
     this.timeSheetRows.splice(index, 1);
+    this.scheduleTimesheetScrollStateUpdate();
+  }
+
+  private scheduleTimesheetScrollStateUpdate(delayMs = 0): void {
+    setTimeout(() => this.updateTimesheetScrollState(), delayMs);
+  }
+
+  private updateTimesheetScrollState(): void {
+    const container = this.timesheetTableWrap?.nativeElement;
+    if (!container || this.timeSheetScreenMode !== 'create') {
+      this.showTimesheetScrollHint = false;
+      return;
+    }
+
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+    const hasOverflow = maxScrollLeft > 6;
+    const isNearEnd = container.scrollLeft >= maxScrollLeft - 8;
+
+    this.showTimesheetScrollHint = hasOverflow && !isNearEnd;
   }
 
   shouldShowPlusForRow(row: TimeSheetRow, index: number): boolean {
@@ -1247,6 +1283,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       cursor.setDate(cursor.getDate() + 1);
     }
     this.timeSheetRows = rows;
+    this.scheduleTimesheetScrollStateUpdate();
   }
 
   private loadTimeSheetProjectOptions(source: ProjectOptionsSource = 'default'): void {
