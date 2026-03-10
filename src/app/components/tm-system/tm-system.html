@@ -937,8 +937,6 @@
                   <p class="timesheet-deadline-label">Submission Deadline </p>
                   <p class="timesheet-deadline-date">{{ formatCompactDate(submissionDeadlineDate) }}</p>
                 </div>
-                <div class="timesheet-actions">
-                </div>
               </div>
 
               <div class="timesheet-table-shell">
@@ -949,18 +947,19 @@
                       <th>Date</th>
                       <th>Entry Type</th>
                       <th>Pay Code</th>
-                      <th>Expense Code</th>
                       <th>Hours</th>
                       <th>Amount</th>
-                      <th>Total</th>
+                      <th>Daily Total</th>
                       <th>Department</th>
                       <th>Account</th>
+                      <th>Expense Code</th>
                       <th>Project</th>
                       <th class="timesheet-comment-col">Comment</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let row of timeSheetRows; let i = index" [class.timesheet-row-added]="row.isNewlyAdded">
+                    <ng-container *ngFor="let row of timeSheetRows; let i = index">
+                    <tr [class.timesheet-row-added]="row.isNewlyAdded">
                       <td>
                         <div class="timesheet-date-cell">
                           <input *ngIf="shouldShowPlusForRow(row, i)" type="date" [(ngModel)]="row.date" />
@@ -999,12 +998,6 @@
                         </select>
                       </td>
                       <td>
-                        <select [(ngModel)]="row.expenseCode" [disabled]="row.entryType === 'TIME'">
-                          <option value="">Select</option>
-                          <option *ngFor="let expenseCode of timeSheetExpenseCodeOptions" [value]="expenseCode">{{ expenseCode }}</option>
-                        </select>
-                      </td>
-                      <td>
                         <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" [disabled]="row.entryType === 'EXPENSE'" />
                       </td>
                       <td>
@@ -1031,6 +1024,12 @@
                           <option *ngFor="let accountOption of timeSheetGlAccountOptions" [value]="accountOption">
                             {{ accountOption }}
                           </option>
+                        </select>
+                      </td>
+                      <td>
+                        <select [(ngModel)]="row.expenseCode" [disabled]="row.entryType === 'TIME'">
+                          <option value="">Select</option>
+                          <option *ngFor="let expenseCode of timeSheetExpenseCodeOptions" [value]="expenseCode">{{ expenseCode }}</option>
                         </select>
                       </td>
                       <td>
@@ -1065,7 +1064,7 @@
                                   [style.color]="option.isFavourite ? '#f59e0b' : '#94a3b8'"
                                   [disabled]="isProjectFavouriteSaving(option.id)"
                                   (click)="markProjectAsFavourite(option, $event)"
-                                  [title]="option.isFavourite ? 'Favourite' : 'Mark as favourite'">
+                                  [title]="option.isFavourite ? 'Favourite' : 'Mark as most used'">
                                   {{ option.isFavourite ? '★' : '☆' }}
                                 </button>
                               </div>
@@ -1077,6 +1076,12 @@
                         <input class="timesheet-comment-input" type="text" [(ngModel)]="row.comment" placeholder="Comment" />
                       </td>
                     </tr>
+                    <tr class="timesheet-row-error" *ngIf="getRowValidationError(row)">
+                      <td colspan="11">
+                        <p class="timesheet-row-error-msg">{{ getRowValidationError(row) }}</p>
+                      </td>
+                    </tr>
+                    </ng-container>
                   </tbody>
                   </table>
                 </div>
@@ -1110,7 +1115,7 @@
                   <div class="summary-col">
                     <h4>Premium</h4>
                     <div class="summary-row">
-                      <span>Holiday / Overtime</span>
+                      <span>Overtime</span>
                       <strong>{{ premiumTotal | number:'1.2-2' }}</strong>
                     </div>
                   </div>

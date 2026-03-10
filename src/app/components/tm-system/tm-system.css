@@ -1065,7 +1065,7 @@ td:nth-child(7) {
   align-items: center;
   gap: 8px;
   color: #475569;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .timesheet-period label {
@@ -1074,7 +1074,7 @@ td:nth-child(7) {
 }
 
 .timesheet-period select {
-  height: 38px;
+  height: 40px;
   border: 1px solid #bfccdd;
   border-radius: 8px;
   padding: 0 12px;
@@ -1084,8 +1084,6 @@ td:nth-child(7) {
 }
 
 .period-nav {
-  width: 38px;
-  height: 38px;
   border: 1px solid #bfccdd;
   border-radius: 999px;
   background: #ffffff;
@@ -1114,7 +1112,6 @@ td:nth-child(7) {
   align-items: center;
   gap: 8px;
   color: #475569;
-  font-size: 14px;
 }
 
 .timesheet-technician label {
@@ -1124,7 +1121,7 @@ td:nth-child(7) {
 
 .timesheet-technician select {
   min-width: 220px;
-  height: 38px;
+  height: 40px;
   border: 1px solid #bfccdd;
   border-radius: 8px;
   padding: 0 12px;
@@ -1144,7 +1141,7 @@ td:nth-child(7) {
   align-items: center;
   gap: 6px;
   color: #334155;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1154,18 +1151,12 @@ td:nth-child(7) {
   accent-color: #2563eb;
 }
 
-.timesheet-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .ts-btn {
   border: 1px solid transparent;
   border-radius: 10px;
-  height: 38px;
+  height: 36px;
   padding: 0 14px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -1245,7 +1236,7 @@ td:nth-child(7) {
 }
 
 .timesheet-card .timesheet-table:not(.timesheet-list-table) {
-  min-width: 1260px;
+  min-width: 1340px;
 }
 
 .timesheet-table.timesheet-list-table {
@@ -1259,6 +1250,7 @@ td:nth-child(7) {
   font-size: 12px;
   letter-spacing: 0.06em;
   font-weight: 700;
+  text-transform: none;
   border-bottom: 1px solid #d3deeb;
 }
 
@@ -1278,12 +1270,12 @@ td:nth-child(7) {
 
 .timesheet-table th:nth-child(2),
 .timesheet-table td:nth-child(2) {
-  width: 8%;
+  width: 10%;
 }
 
 .timesheet-table th:nth-child(3),
 .timesheet-table td:nth-child(3) {
-  width: 8%;
+  width: 10%;
 }
 
 .timesheet-table .timesheet-comment-col {
@@ -1297,32 +1289,32 @@ td:nth-child(7) {
 
 .timesheet-table th:nth-child(4),
 .timesheet-table td:nth-child(4) {
-  width: 8%;
+  width: 7%;
 }
 
 .timesheet-table th:nth-child(5),
 .timesheet-table td:nth-child(5) {
-  width: 7%;
+  width: 8%;
 }
 
 .timesheet-table th:nth-child(6),
 .timesheet-table td:nth-child(6) {
-  width: 8%;
+  width: 6%;
 }
 
 .timesheet-table th:nth-child(7),
 .timesheet-table td:nth-child(7) {
-  width: 6%;
+  width: 9%;
 }
 
 .timesheet-table th:nth-child(8),
 .timesheet-table td:nth-child(8) {
-  width: 8%;
+  width: 9%;
 }
 
 .timesheet-table th:nth-child(9),
 .timesheet-table td:nth-child(9) {
-  width: 8%;
+  width: 10%;
 }
 
 .timesheet-table th:nth-child(10),
@@ -1347,6 +1339,14 @@ td:nth-child(7) {
 
 .timesheet-table tbody tr:hover td {
   background: #f8fbff;
+}
+
+.timesheet-table tbody tr.timesheet-row-error td {
+  padding: 6px 8px;
+}
+
+.timesheet-row-error-msg {
+  color: #b91c1c;
 }
 
 .timesheet-row-added td {

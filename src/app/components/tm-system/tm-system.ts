@@ -343,7 +343,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { value: 'OVERTIME_1_5', label: 'Overtime 1.5', type: 'premium' },
     { value: 'MISC_LEAVE', label: 'Misc Leave', type: 'non-worked' },
     { value: 'JURY_DUTY', label: 'Jury Duty', type: 'non-worked' },
-    { value: 'HOLIDAY_PAY', label: 'Holiday Pay', type: 'premium' },
+    { value: 'HOLIDAY_PAY', label: 'Holiday Pay', type: 'non-worked' },
     { value: 'DOUBLE_TIME', label: 'Double time', type: 'premium' },
     { value: 'BEREAVEMENT', label: 'Bereavement', type: 'non-worked' }
   ];
@@ -351,6 +351,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   readonly timeSheetExpenseCodeOptions: string[] = ['LABOR', 'TRAVEL', 'MEAL', 'MISCELLANEOUS', 'TRAINING'];
 
   timeSheetRows: TimeSheetRow[] = [];
+  rowValidationErrors: Record<number, string> = {};
   @ViewChild('timesheetTableWrap') private timesheetTableWrap?: ElementRef<HTMLDivElement>;
   showTimesheetScrollHint = false;
 
@@ -451,6 +452,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.editingTimesheetId = undefined;
     this.openProjectDropdownRowId = undefined;
     this.saveAsTemplate = false;
+    this.clearRowValidationErrors();
     if (this.isAdminRole) {
       this.loadTimeSheetTechnicianOptions();
     }
@@ -474,6 +476,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.timeSheetEditLoading = false;
     this.timeSheetScreenMode = 'list';
     this.showTimesheetScrollHint = false;
+    this.clearRowValidationErrors();
     this.loadTimesheetList();
   }
 
@@ -514,7 +517,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             }
 
             this.loadTimeSheetProjectOptions();
-            this.cdr.detectChanges();
+            this.refreshTimesheetRowsView();
           });
         },
         error: (err: any) => {
@@ -525,7 +528,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             // If draft is not found, reset to empty rows for the selected period.
             this.seedTimeSheetRows();
             this.saveAsTemplate = false;
-            this.cdr.detectChanges();
+            this.refreshTimesheetRowsView();
           });
         }
       });
@@ -608,6 +611,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (accounts.length) {
       this.timeSheetGlAccountOptions = Array.from(new Set([...accounts, ...this.timeSheetGlAccountOptions]));
     }
+  }
+
+  private refreshTimesheetRowsView(): void {
+    // Force a new array reference so table bindings update immediately after async prefill.
+    this.timeSheetRows = [...this.timeSheetRows];
+    this.cdr.detectChanges();
+    setTimeout(() => this.cdr.detectChanges());
   }
 
   loadTimesheetList(): void {
@@ -705,6 +715,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             }
 
             this.editingTimesheetId = id;
+            this.clearRowValidationErrors();
             this.loadTimeSheetProjectOptions();
             this.loadTimeSheetDepartmentOptions();
             this.loadTimeSheetGlAccountOptions();
@@ -938,11 +949,16 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.zone.run(() => {
-            option.isFavourite = true;
-            this.timeSheetProjectOptions = [...this.timeSheetProjectOptions]
+            this.timeSheetProjectOptions = this.timeSheetProjectOptions
+              .map((item) => (
+                item.id === option.id
+                  ? { ...item, isFavourite: true }
+                  : item
+              ))
               .sort((a, b) => Number(b.isFavourite) - Number(a.isFavourite));
-            this.toastr.success('Project marked as favourite.');
+            this.toastr.success('Project added to the most used list.');
             this.cdr.detectChanges();
+            setTimeout(() => this.cdr.detectChanges());
           });
         },
         error: () => {
@@ -1158,6 +1174,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     return Number(total.toFixed(2));
   }
 
+  getRowValidationError(row: TimeSheetRow): string {
+    return this.rowValidationErrors[row.id] ?? '';
+  }
+
   sendForApproval(): void {
     if (this.timesheetSubmitting || this.timesheetDraftSubmitting) {
       return;
@@ -1167,26 +1187,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const invalidRequiredRows = this.timeSheetRows.filter((row) => {
-      const hasHoursValue = (Number(row.hours) || 0) > 0;
-      const hasAmountValue = this.parseAmount(row.amount) > 0;
-      if (!hasHoursValue && !hasAmountValue) {
-        return false;
-      }
-      const missingDepartment = !String(row.department ?? '').trim().length;
-      const missingAccount = !String(row.account ?? '').trim().length;
-      return missingDepartment || missingAccount;
-    });
-    if (invalidRequiredRows.length) {
-      const invalidDates = Array.from(
-        new Set(
-          invalidRequiredRows
-            .map((row) => this.formatDate(row.date))
-            .filter((value) => !!String(value ?? '').trim().length)
-        )
-      );
-      const dateSuffix = invalidDates.length ? ` Date(s): ${invalidDates.join(', ')}` : '';
-      this.toastr.error(`Department and Account are required when Hours or Amount has a value.${dateSuffix}`);
+    if (!this.validateRowsForSubmit()) {
       return;
     }
 
@@ -1257,6 +1258,39 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   private payCodeType(payCode: string): PayCodeType {
     return this.timeSheetPayCodes.find((c) => c.value === payCode)?.type ?? 'worked';
+  }
+
+  private clearRowValidationErrors(): void {
+    this.rowValidationErrors = {};
+  }
+
+  private validateRowsForSubmit(): boolean {
+    const errors: Record<number, string> = {};
+
+    this.timeSheetRows.forEach((row) => {
+      const hasHoursValue = (Number(row.hours) || 0) > 0;
+      const hasAmountValue = this.parseAmount(row.amount) > 0;
+      if (!hasHoursValue && !hasAmountValue) {
+        return;
+      }
+
+      const missingDepartment = !String(row.department ?? '').trim().length;
+      const missingAccount = !String(row.account ?? '').trim().length;
+      if (!missingDepartment && !missingAccount) {
+        return;
+      }
+
+      if (missingDepartment && missingAccount) {
+        errors[row.id] = 'Department and Account are required for this row.';
+        return;
+      }
+      errors[row.id] = missingDepartment
+        ? 'Department is required for this row.'
+        : 'Account is required for this row.';
+    });
+
+    this.rowValidationErrors = errors;
+    return !Object.keys(errors).length;
   }
 
   private seedTimeSheetRows(): void {
@@ -1346,6 +1380,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const technicianId = this.getCurrentTechnicianId();
     if (!technicianId) {
       this.toastr.error('Please select a technician.');
+      return;
+    }
+    if (!this.validateRowsForSubmit()) {
       return;
     }
 
