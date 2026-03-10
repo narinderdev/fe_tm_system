@@ -967,7 +967,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.updateTimesheetScrollState();
   }
 
-  addTimeSheetRow(date?: string, insertAfterIndex?: number): void {
+  addTimeSheetRow(date?: string): void {
     const nextRow: TimeSheetRow = {
       id: this.nextTimeSheetRowId++,
       date: date || this.payPeriodStart,
@@ -987,9 +987,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       isNewlyAdded: true
     };
 
-    const targetIndex = Number(insertAfterIndex);
-    if (Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < this.timeSheetRows.length) {
-      this.timeSheetRows.splice(targetIndex + 1, 0, nextRow);
+    const dateKey = this.toDateKey(nextRow.date);
+    const lastIndexForDate = this.findLastRowIndexForDate(dateKey);
+    if (lastIndexForDate >= 0) {
+      this.timeSheetRows.splice(lastIndexForDate + 1, 0, nextRow);
     } else {
       this.timeSheetRows.push(nextRow);
     }
@@ -1048,6 +1049,15 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private getDateRowCount(date: string): number {
     const dateKey = this.toDateKey(date);
     return this.timeSheetRows.filter((row) => this.toDateKey(row.date) === dateKey).length;
+  }
+
+  private findLastRowIndexForDate(dateKey: string): number {
+    for (let i = this.timeSheetRows.length - 1; i >= 0; i -= 1) {
+      if (this.toDateKey(this.timeSheetRows[i].date) === dateKey) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private toDateKey(value: string): string {
