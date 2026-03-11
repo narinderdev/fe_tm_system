@@ -20,8 +20,8 @@ export interface TimesheetDayRowPayload {
   entry_type: string;
   pay_code?: string;
   hours?: number;
+  company_number?: string;
   expense_code?: string;
-  expense_amount?: number;
   accounting_unit: string;
   ferc: string;
   activity: string;

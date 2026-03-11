@@ -376,6 +376,13 @@ export class WorkOrderService {
     return this.http.get(`${this.apiUrl}/numbers`, { params, headers });
   }
 
+  fetchTimesheetWorkOrderTypes(): Observable<any> {
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get(`${this.apiUrl}/types`, { headers });
+  }
+
   fetchCapexWorkOrderNumbers(): Observable<any> {
     const headers = new HttpHeaders({
       'ngrok-skip-browser-warning': 'true'

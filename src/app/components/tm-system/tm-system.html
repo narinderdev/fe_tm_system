@@ -945,10 +945,10 @@
                   <thead>
                     <tr>
                       <th>Date</th>
-                      <th>Entry Type</th>
+                      <th>Work Order Type</th>
                       <th>Pay Code</th>
                       <th>Hours</th>
-                      <th>Amount</th>
+                      <th>Company Number</th>
                       <th>Daily Total</th>
                       <th>Department</th>
                       <th>Account</th>
@@ -989,7 +989,8 @@
                       <td>
                         <select [(ngModel)]="row.entryType" (ngModelChange)="onEntryTypeChange(row)">
                           <option value="">Select</option>
-                          <option *ngFor="let entryType of timeSheetEntryTypeOptions" [value]="entryType">{{ entryType }}</option>
+                          <option value="" *ngIf="timeSheetWorkOrderTypeLoading && !timeSheetWorkOrderTypeOptions.length">Loading...</option>
+                          <option *ngFor="let workOrderType of timeSheetWorkOrderTypeOptions" [value]="workOrderType.value">{{ workOrderType.label }}</option>
                         </select>
                       </td>
                       <td>
@@ -998,10 +999,10 @@
                         </select>
                       </td>
                       <td>
-                        <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" [disabled]="row.entryType === 'EXPENSE'" />
+                        <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
                       </td>
                       <td>
-                        <input type="text" [(ngModel)]="row.amount" placeholder="Amount" [disabled]="row.entryType === 'TIME'" />
+                        <input type="text" [(ngModel)]="row.amount" placeholder="Company Number" />
                       </td>
                       <td class="timesheet-day-total">
                         <ng-container *ngIf="shouldShowPlusForRow(row, i)">

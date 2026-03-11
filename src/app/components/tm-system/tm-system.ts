@@ -68,6 +68,13 @@ interface WorkOrderProjectOption {
   isFavourite: boolean;
 }
 
+interface TimeSheetWorkOrderTypeOption {
+  value: string;
+  label: string;
+  propertyUnit: string;
+  defaultGlAccount: string;
+}
+
 type ProjectOptionsSource = 'default' | 'capex';
 
 type TimeSheetViewMode = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
@@ -331,6 +338,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   timeSheetDepartmentLoading = false;
   timeSheetGlAccountOptions: string[] = [];
   timeSheetGlAccountLoading = false;
+  timeSheetWorkOrderTypeOptions: TimeSheetWorkOrderTypeOption[] = [];
+  timeSheetWorkOrderTypeLoading = false;
   openProjectDropdownRowId?: number;
   private readonly favouritingWorkOrderIds = new Set<number>();
 
@@ -347,7 +356,6 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { value: 'DOUBLE_TIME', label: 'Double time', type: 'premium' },
     { value: 'BEREAVEMENT', label: 'Bereavement', type: 'non-worked' }
   ];
-  readonly timeSheetEntryTypeOptions: string[] = ['TIME', 'EXPENSE'];
   readonly timeSheetExpenseCodeOptions: string[] = ['LABOR', 'TRAVEL', 'MEAL', 'MISCELLANEOUS', 'TRAINING'];
 
   timeSheetRows: TimeSheetRow[] = [];
@@ -446,6 +454,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       this.setPayPeriod(0);
       this.timeSheetReady = true;
     }
+    this.loadTimeSheetWorkOrderTypeOptions();
   }
 
   openTimeSheetCreate(): void {
@@ -463,6 +472,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       this.setPayPeriod(this.currentPeriodOffset);
     }
     this.loadTimeSheetProjectOptions();
+    this.loadTimeSheetWorkOrderTypeOptions(true);
     this.loadTimeSheetDepartmentOptions();
     this.loadTimeSheetGlAccountOptions();
     this.timeSheetScreenMode = 'create';
@@ -717,6 +727,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             this.editingTimesheetId = id;
             this.clearRowValidationErrors();
             this.loadTimeSheetProjectOptions();
+            this.loadTimeSheetWorkOrderTypeOptions(true);
             this.loadTimeSheetDepartmentOptions();
             this.loadTimeSheetGlAccountOptions();
             this.timeSheetScreenMode = 'create';
@@ -906,6 +917,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   onEntryTypeChange(row: TimeSheetRow): void {
+    this.applyWorkOrderTypeAutoFill(row);
     const type = this.normalizeEntryType(row);
     if (type === 'EXPENSE') {
       row.payCode = 'REGULAR';
@@ -1268,25 +1280,41 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const errors: Record<number, string> = {};
 
     this.timeSheetRows.forEach((row) => {
+      if (row.markedForDelete) {
+        return;
+      }
+
       const hasHoursValue = (Number(row.hours) || 0) > 0;
-      const hasAmountValue = this.parseAmount(row.amount) > 0;
-      if (!hasHoursValue && !hasAmountValue) {
+      if (!hasHoursValue) {
         return;
       }
 
-      const missingDepartment = !String(row.department ?? '').trim().length;
-      const missingAccount = !String(row.account ?? '').trim().length;
-      if (!missingDepartment && !missingAccount) {
-        return;
+      const missing: string[] = [];
+      if (!String(row.entryType ?? '').trim()) {
+        missing.push('Work Order Type');
+      }
+      if (!String(row.payCode ?? '').trim()) {
+        missing.push('Pay Code');
+      }
+      if (!String(row.amount ?? '').trim()) {
+        missing.push('Company Number');
+      }
+      if (!String(row.department ?? '').trim()) {
+        missing.push('Department');
+      }
+      if (!String(row.account ?? '').trim()) {
+        missing.push('Account');
+      }
+      if (!String(row.expenseCode ?? '').trim()) {
+        missing.push('Expense Code');
+      }
+      if (!String(row.project ?? '').trim()) {
+        missing.push('Project');
       }
 
-      if (missingDepartment && missingAccount) {
-        errors[row.id] = 'Department and Account are required for this row.';
-        return;
+      if (missing.length) {
+        errors[row.id] = `Required: ${missing.join(', ')}.`;
       }
-      errors[row.id] = missingDepartment
-        ? 'Department is required for this row.'
-        : 'Account is required for this row.';
     });
 
     this.rowValidationErrors = errors;
@@ -1371,6 +1399,199 @@ export class TmSystemComponent implements OnInit, OnDestroy {
           });
         }
       });
+  }
+
+  private loadTimeSheetWorkOrderTypeOptions(forceReload = false): void {
+    if (this.timeSheetWorkOrderTypeLoading || (!forceReload && this.timeSheetWorkOrderTypeOptions.length)) {
+      return;
+    }
+
+    this.timeSheetWorkOrderTypeLoading = true;
+    this.workOrderService
+      .fetchTimesheetWorkOrderTypes()
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.timeSheetWorkOrderTypeLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            const options = this.normalizeTimeSheetWorkOrderTypeOptions(response);
+            this.timeSheetWorkOrderTypeOptions = options.length
+              ? options
+              : [
+                  { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '' },
+                  { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '' }
+                ];
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.timeSheetWorkOrderTypeOptions = [
+              { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '' },
+              { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '' }
+            ];
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private normalizeTimeSheetWorkOrderTypeOptions(response: any): TimeSheetWorkOrderTypeOption[] {
+    const raw = response?.data ?? response;
+    const normalizeList = (items: any[]): TimeSheetWorkOrderTypeOption[] =>
+      Array.from(
+        new Map(
+          items
+            .map((item: any) => this.toWorkOrderTypeOption(item))
+            .filter((item) => !!item.value && item.value !== '[object Object]')
+            .map((item) => [item.value, item] as const)
+        ).values()
+      );
+
+    if (Array.isArray(raw)) {
+      return normalizeList(raw);
+    }
+
+    if (raw && typeof raw === 'object') {
+      const list = Array.isArray(raw?.content)
+        ? raw.content
+        : (Array.isArray(raw?.items)
+          ? raw.items
+          : (Array.isArray(raw?.types)
+            ? raw.types
+            : (Array.isArray(raw?.workOrderTypes) ? raw.workOrderTypes : [])));
+      if (list.length) {
+        return normalizeList(list);
+      }
+    }
+
+    const rawString = String(raw ?? '').trim();
+    if (!rawString) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(rawString);
+      if (Array.isArray(parsed)) {
+        return normalizeList(parsed);
+      }
+      if (parsed && typeof parsed === 'object') {
+        const list = Array.isArray(parsed?.content)
+          ? parsed.content
+          : (Array.isArray(parsed?.items)
+            ? parsed.items
+            : (Array.isArray(parsed?.types)
+              ? parsed.types
+              : (Array.isArray(parsed?.workOrderTypes) ? parsed.workOrderTypes : [])));
+        if (list.length) {
+          return normalizeList(list);
+        }
+      }
+    } catch {
+      // Keep fallback split parsing for plain strings.
+    }
+
+    return rawString
+      .split(/[\n,|]/)
+      .map((item) => item.trim())
+      .filter((item) => !!item)
+      .map((item) => ({ value: item, label: item, propertyUnit: '', defaultGlAccount: '' }));
+  }
+
+  private toWorkOrderTypeOption(item: any): TimeSheetWorkOrderTypeOption {
+    const label = this.extractWorkOrderTypeLabel(item).trim();
+    const propertyUnit = this.extractItemField(item, ['property_unit', 'propertyUnit']).trim();
+    const defaultGlAccount = this.extractItemField(item, ['default_gl_account', 'defaultGlAccount']).trim();
+    return {
+      value: label,
+      label,
+      propertyUnit,
+      defaultGlAccount
+    };
+  }
+
+  private extractWorkOrderTypeLabel(item: any): string {
+    if (item === null || item === undefined) {
+      return '';
+    }
+    if (typeof item === 'string' || typeof item === 'number') {
+      return String(item);
+    }
+    if (typeof item !== 'object') {
+      return '';
+    }
+
+    const knownKeys = [
+      'property_unit',
+      'propertyUnit',
+      'workOrderType',
+      'work_order_type',
+      'type',
+      'name',
+      'label',
+      'value',
+      'code',
+      'entryType',
+      'description'
+    ];
+    for (const key of knownKeys) {
+      const value = item?.[key];
+      if (typeof value === 'string' || typeof value === 'number') {
+        return String(value);
+      }
+    }
+
+    const firstPrimitive = Object.values(item).find(
+      (value: any) => typeof value === 'string' || typeof value === 'number'
+    );
+    return firstPrimitive === undefined ? '' : String(firstPrimitive);
+  }
+
+  private extractItemField(item: any, keys: string[]): string {
+    if (!item || typeof item !== 'object') {
+      return '';
+    }
+    for (const key of keys) {
+      const value = item[key];
+      if (typeof value === 'string' || typeof value === 'number') {
+        return String(value);
+      }
+    }
+    return '';
+  }
+
+  private applyWorkOrderTypeAutoFill(row: TimeSheetRow): void {
+    const selectedValue = String(row.entryType ?? '').trim();
+    if (!selectedValue) {
+      return;
+    }
+    const selectedType = this.timeSheetWorkOrderTypeOptions.find((item) => item.value === selectedValue);
+    if (!selectedType) {
+      return;
+    }
+
+    const department = selectedType.propertyUnit || selectedValue;
+    const account = selectedType.defaultGlAccount;
+
+    if (department) {
+      row.department = department;
+      if (!this.timeSheetDepartmentOptions.includes(department)) {
+        this.timeSheetDepartmentOptions = [department, ...this.timeSheetDepartmentOptions];
+      }
+    }
+    if (account) {
+      row.account = account;
+      if (!this.timeSheetGlAccountOptions.includes(account)) {
+        this.timeSheetGlAccountOptions = [account, ...this.timeSheetGlAccountOptions];
+      }
+    }
   }
 
   saveTimesheetDraft(): void {
@@ -1871,7 +2092,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   private toUiTimeSheetRow(row: any): TimeSheetRow {
     const inferredEntryType = String(row?.entry_type ?? row?.entryType ?? '').trim().toUpperCase();
     const normalizedEntryType = inferredEntryType
-      || (row?.expense_code || row?.expenseCode || row?.expense_amount || row?.expenseAmount ? 'EXPENSE' : 'TIME');
+      || (row?.expense_code || row?.expenseCode || row?.company_number || row?.companyNumber || row?.expense_amount || row?.expenseAmount ? 'EXPENSE' : 'TIME');
     return {
       id: this.nextTimeSheetRowId++,
       date: row?.date ?? this.payPeriodStart,
@@ -1881,7 +2102,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
       expenseCode: String(row?.expense_code ?? row?.expenseCode ?? '').trim(),
       hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
-      amount: String(row?.amount ?? row?.expense_amount ?? row?.expenseAmount ?? '').trim(),
+      amount: String(row?.company_number ?? row?.companyNumber ?? row?.amount ?? row?.expense_amount ?? row?.expenseAmount ?? '').trim(),
       department: row?.department ?? row?.accounting_unit ?? row?.accountingUnit ?? '',
       account: row?.account ?? row?.ferc ?? '',
       project: row?.project ?? row?.activity ?? '',
@@ -1900,8 +2121,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       entry_type: string;
       pay_code?: string;
       hours?: number;
+      company_number?: string;
       expense_code?: string;
-      expense_amount?: number;
       accounting_unit: string;
       ferc: string;
       activity: string;
@@ -1929,6 +2150,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             const entryType = this.normalizeEntryType(row);
             const base = {
               entry_type: entryType,
+              company_number: String(row.amount ?? '').trim(),
               accounting_unit: row.department || '',
               ferc: row.account || '',
               activity: row.project || '',
@@ -1938,8 +2160,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             if (entryType === 'EXPENSE') {
               return {
                 ...base,
-                expense_code: String(row.expenseCode ?? '').trim().toUpperCase(),
-                expense_amount: this.parseAmount(row.amount)
+                expense_code: String(row.expenseCode ?? '').trim().toUpperCase()
               };
             }
             return {
