@@ -310,11 +310,11 @@
                   </div>
                   <div class="form-group half">
                     <label class="form-label">Technician Photo</label>
-                    <input class="form-input" type="file" name="techPhoto" (change)="onTechnicianFileSelected($event, 'technicianPhotoUrl')" />
+                    <input class="form-input" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" name="techPhoto" (change)="onTechnicianFileSelected($event, 'technicianPhotoUrl')" />
                   </div>
                   <div class="form-group half">
                     <label class="form-label">Certificate Upload</label>
-                    <input class="form-input" type="file" name="techCertificate" (change)="onTechnicianFileSelected($event, 'certificateUrl')" />
+                    <input class="form-input" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" name="techCertificate" (change)="onTechnicianFileSelected($event, 'certificateUrl')" />
                   </div>
                   <div class="form-group half">
                     <label class="form-label">Team</label>

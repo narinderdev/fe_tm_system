@@ -31,6 +31,9 @@
           },
           "configurations": {
             "production": {
+              "optimization": true,
+              "sourceMap": false,
+              "extractLicenses": true,
               "budgets": [
                 {
                   "type": "initial",
@@ -57,7 +60,7 @@
           "builder": "@angular/build:dev-server",
           "options": {
             "allowedHosts": [
-              "d5d0-203-190-154-162.ngrok-free.app"
+              "248e-203-190-154-162.ngrok-free.app"
             ]
           },
           "configurations": {

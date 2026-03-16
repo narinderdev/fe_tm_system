@@ -27,6 +27,7 @@ export class SetPasswordComponent {
   readonly form: FormGroup;
 
   email = '';
+  invitationToken = '';
   loading = false;
   passwordVisible = false;
   confirmPasswordVisible = false;
@@ -49,8 +50,9 @@ export class SetPasswordComponent {
     );
 
     this.email = String(this.route.snapshot.queryParamMap.get('email') ?? '').trim().toLowerCase();
-    if (!this.email) {
-      this.globalError = 'Invalid link. Email parameter is missing.';
+    this.invitationToken = String(this.route.snapshot.queryParamMap.get('token') ?? '').trim();
+    if (!this.email || !this.invitationToken) {
+      this.globalError = 'Invalid link. Required email/token parameters are missing.';
     }
   }
 
@@ -100,7 +102,7 @@ export class SetPasswordComponent {
   }
 
   get disableSubmit(): boolean {
-    return this.loading || !this.email;
+    return this.loading || !this.email || !this.invitationToken;
   }
 
   submit(): void {
@@ -120,7 +122,7 @@ export class SetPasswordComponent {
     this.loading = true;
 
     this.userManagementService
-      .setPassword({ email: this.email, password })
+      .setPassword({ email: this.email, password, invitationToken: this.invitationToken })
       .pipe(
         take(1),
         finalize(() => {

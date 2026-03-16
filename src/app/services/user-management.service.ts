@@ -13,6 +13,7 @@ export interface InviteUserPayload {
 export interface SetPasswordPayload {
   email: string;
   password: string;
+  invitationToken: string;
 }
 
 @Injectable({
@@ -28,7 +29,11 @@ export class UserManagementService {
   }
 
   setPassword(payload: SetPasswordPayload): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/invitations/set-password`, payload, { headers: this.buildHeaders() });
+    const requestBody = {
+      ...payload,
+      token: payload.invitationToken
+    };
+    return this.http.post(`${this.baseUrl}/api/invitations/set-password`, requestBody, { headers: this.buildHeaders() });
   }
 
   private buildHeaders(): HttpHeaders {

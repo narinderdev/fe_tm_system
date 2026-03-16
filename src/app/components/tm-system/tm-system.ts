@@ -148,6 +148,10 @@ interface TeamFormModel {
   technicianIds: number[];
 }
 
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'pdf']);
+const ALLOWED_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+
 @Component({
   selector: 'app-tm-system',
   standalone: true,
@@ -2963,7 +2967,17 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   onTechnicianFileSelected(event: Event, field: 'technicianPhotoUrl' | 'certificateUrl'): void {
     const input = event.target as HTMLInputElement;
     const file = input?.files?.[0];
-    this.technicianForm[field] = file ? file.name : '';
+    if (!file) {
+      this.technicianForm[field] = '';
+      return;
+    }
+    if (!this.isValidUpload(file)) {
+      input.value = '';
+      this.technicianForm[field] = '';
+      this.toastr.error('Only JPG, PNG, or PDF files up to 5MB are allowed.');
+      return;
+    }
+    this.technicianForm[field] = file.name;
   }
 
   onAutoGenerateTechnicianIdChange(): void {
@@ -3256,6 +3270,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       notes: input.notes || '',
       teamId: input.teamId
     };
+  }
+
+  private isValidUpload(file: File): boolean {
+    const extension = String(file.name.split('.').pop() ?? '').trim().toLowerCase();
+    const isAllowedExtension = ALLOWED_UPLOAD_EXTENSIONS.has(extension);
+    const isAllowedMime = !file.type || ALLOWED_UPLOAD_MIME_TYPES.has(file.type);
+    const isAllowedSize = file.size > 0 && file.size <= MAX_UPLOAD_SIZE_BYTES;
+    return isAllowedExtension && isAllowedMime && isAllowedSize;
   }
 
   private ensureTeamConsistencyAfterTechnicianDelete(technicianId: number): void {

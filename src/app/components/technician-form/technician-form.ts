@@ -12,6 +12,10 @@ import {
 import { UserManagementService } from '../../services/user-management.service';
 import { Loader } from '../loader/loader';
 
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'pdf']);
+const ALLOWED_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+
 @Component({
   selector: 'app-technician-form',
   standalone: true,
@@ -120,7 +124,17 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
   onFileSelected(event: Event, controlName: 'technicianPhotoUrl' | 'certificateUrl'): void {
     const input = event.target as HTMLInputElement;
     const file = input?.files?.[0];
-    this.form.get(controlName)?.setValue(file ? file.name : '');
+    if (!file) {
+      this.form.get(controlName)?.setValue('');
+      return;
+    }
+    if (!this.isValidUpload(file)) {
+      input.value = '';
+      this.form.get(controlName)?.setValue('');
+      this.toastr.error('Only JPG, PNG, or PDF files up to 5MB are allowed.');
+      return;
+    }
+    this.form.get(controlName)?.setValue(file.name);
   }
 
   submit(): void {
@@ -307,5 +321,13 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
     if (!this.showTerminationDate) {
       this.form.get('terminationDate')?.setValue('');
     }
+  }
+
+  private isValidUpload(file: File): boolean {
+    const extension = String(file.name.split('.').pop() ?? '').trim().toLowerCase();
+    const isAllowedExtension = ALLOWED_UPLOAD_EXTENSIONS.has(extension);
+    const isAllowedMime = !file.type || ALLOWED_UPLOAD_MIME_TYPES.has(file.type);
+    const isAllowedSize = file.size > 0 && file.size <= MAX_UPLOAD_SIZE_BYTES;
+    return isAllowedExtension && isAllowedMime && isAllowedSize;
   }
 }

@@ -20,13 +20,6 @@ export class AuthGuard implements CanActivate, CanActivateChild {
     return !!localStorage.getItem('authToken');
   }
 
-  private hasSignupUser(): boolean {
-    if (!this.isBrowser) {
-      return true;
-    }
-    return !!localStorage.getItem('signupUserId');
-  }
-
   private redirectToLogin(): UrlTree {
     return this.router.parseUrl('/login');
   }
@@ -42,21 +35,26 @@ export class AuthGuard implements CanActivate, CanActivateChild {
     return localStorage.getItem('passwordExpired') === 'true' && !!localStorage.getItem('loginEmail');
   }
 
-  private canAccessPublicAuthFlow(url: string): boolean {
+  private canAccessPublicAuthFlow(route: ActivatedRouteSnapshot, url: string): boolean {
     if (!this.isBrowser) {
       return true;
     }
-    return url.startsWith('/set-password');
+    if (!url.startsWith('/set-password')) {
+      return false;
+    }
+    const email = String(route.queryParamMap.get('email') ?? '').trim().toLowerCase();
+    const token = String(route.queryParamMap.get('token') ?? '').trim();
+    return !!email && !!token;
   }
 
-  canActivate(_route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree {
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree {
     if (!this.isBrowser) {
       return true;
     }
-    if (this.canAccessPublicAuthFlow(state.url)) {
+    if (this.canAccessPublicAuthFlow(route, state.url)) {
       return true;
     }
-    if (this.isLoggedIn() || this.hasSignupUser()) {
+    if (this.isLoggedIn()) {
       return true;
     }
     if (this.canAccessExpiredPasswordFlow(state.url)) {

@@ -126,12 +126,12 @@
 
       <div class="field">
         <label>Technician Photo</label>
-        <input type="file" (change)="onFileSelected($event, 'technicianPhotoUrl')" />
+        <input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" (change)="onFileSelected($event, 'technicianPhotoUrl')" />
       </div>
 
       <div class="field">
         <label>Certificate Upload</label>
-        <input type="file" (change)="onFileSelected($event, 'certificateUrl')" />
+        <input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" (change)="onFileSelected($event, 'certificateUrl')" />
       </div>
         </div>
 
