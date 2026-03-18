@@ -1328,18 +1328,15 @@ td:nth-child(7) {
 }
 
 .timesheet-day-total {
-  white-space: nowrap;
   font-weight: 600;
   color: #334155;
-}
-
-.timesheet-table tbody tr:last-child td {
-  border-bottom: none;
 }
 
 .timesheet-table tbody tr:hover td {
   background: #f8fbff;
 }
+
+.timesheet-table tbody tr.timesheet-row-today td { background: #e8f1ff; }
 
 .timesheet-table tbody tr.timesheet-row-error td {
   padding: 6px 8px;

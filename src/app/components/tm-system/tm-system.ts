@@ -73,6 +73,7 @@ interface TimeSheetWorkOrderTypeOption {
   label: string;
   propertyUnit: string;
   defaultGlAccount: string;
+  costTreatment: string;
 }
 
 type ProjectOptionsSource = 'default' | 'capex';
@@ -197,8 +198,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { id: 'dashboard', label: 'Dashboard', icon: 'radix-icons_dashboard.svg' },
     { id: 'technicians', label: 'Technician List', icon: 'tec.svg' },
     { id: 'teams', label: 'Team', icon: 'streamline_hierarchy-10.svg' },
-    { id: 'work-orders', label: 'Work Orders', icon: 'fluent-mdl2_work-flow.svg' },
-    { id: 'leaves', label: 'PTO & Holidays', icon: 'proicons_document.svg' },
+    { id: 'work-orders', label: 'Work Order', icon: 'fluent-mdl2_work-flow.svg' },
+    { id: 'leaves', label: 'PTO & Holiday', icon: 'proicons_document.svg' },
     { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' }
   ];
 
@@ -360,7 +361,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { value: 'DOUBLE_TIME', label: 'Double time', type: 'premium' },
     { value: 'BEREAVEMENT', label: 'Bereavement', type: 'non-worked' }
   ];
-  readonly timeSheetExpenseCodeOptions: string[] = ['LABOR', 'TRAVEL', 'MEAL', 'MISCELLANEOUS', 'TRAINING'];
+  readonly ptoDefaultAccount = '70000';
+  readonly defaultExpenseCode = '0040';
+  readonly timeSheetExpenseCodeOptions: string[] = ['0040', '0042', '0068', '0050'];
 
   timeSheetRows: TimeSheetRow[] = [];
   rowValidationErrors: Record<number, string> = {};
@@ -751,11 +754,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   private setPayPeriod(offsetPeriods: number): void {
     const now = new Date();
-    let start = new Date(now.getFullYear(), now.getMonth(), 1);
+    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     start.setHours(0, 0, 0, 0);
 
     if (this.timeSheetView === 'MONTHLY') {
-      start = new Date(start.getFullYear(), start.getMonth() + offsetPeriods, 1);
+      start = new Date(now.getFullYear(), now.getMonth() + offsetPeriods, 1);
       start.setHours(0, 0, 0, 0);
       const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
       end.setHours(0, 0, 0, 0);
@@ -768,6 +771,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
 
     const periodDays = this.timeSheetView === 'WEEKLY' ? 7 : 14;
+    start = this.getPeriodStartForDate(start, periodDays);
     if (offsetPeriods > 0) {
       for (let i = 0; i < offsetPeriods; i += 1) {
         start = this.getNextPeriodStart(start, periodDays);
@@ -900,7 +904,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
 
     const row = this.timeSheetRows.find((item) => item.id === rowId);
-    const source = this.resolveProjectOptionsSource(row?.account);
+    const source = this.resolveProjectOptionsSource(row);
     const shouldReload = !this.timeSheetProjectOptions.length || this.loadedProjectOptionsSource !== source;
     if (shouldReload) {
       this.loadTimeSheetProjectOptions(source);
@@ -910,7 +914,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   onAccountChange(row: TimeSheetRow): void {
     row.project = '';
     row.workOrderId = 0;
-    const source = this.resolveProjectOptionsSource(row.account);
+    const source = this.resolveProjectOptionsSource(row);
     if (this.loadedProjectOptionsSource !== source) {
       this.timeSheetProjectOptions = [];
       this.loadedProjectOptionsSource = undefined;
@@ -922,14 +926,42 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   onEntryTypeChange(row: TimeSheetRow): void {
     this.applyWorkOrderTypeAutoFill(row);
+    const source = this.resolveProjectOptionsSource(row);
+    if (this.loadedProjectOptionsSource !== source) {
+      this.timeSheetProjectOptions = [];
+      this.loadedProjectOptionsSource = undefined;
+    }
+    if (this.openProjectDropdownRowId === row.id) {
+      this.loadTimeSheetProjectOptions(source);
+    }
     const type = this.normalizeEntryType(row);
     if (type === 'EXPENSE') {
       row.payCode = 'REGULAR';
       row.hours = null;
+      row.expenseCode = String(row.expenseCode ?? '').trim() || this.defaultExpenseCode;
       return;
     }
-    row.expenseCode = '';
+    row.expenseCode = this.defaultExpenseCode;
     row.amount = '';
+  }
+
+  onPayCodeChange(row: TimeSheetRow): void {
+    if (!this.isPtoPayCode(row.payCode)) {
+      return;
+    }
+    row.project = '';
+    row.workOrderId = 0;
+    row.account = this.ptoDefaultAccount;
+    if (!this.timeSheetGlAccountOptions.includes(this.ptoDefaultAccount)) {
+      this.timeSheetGlAccountOptions = [this.ptoDefaultAccount, ...this.timeSheetGlAccountOptions];
+    }
+    if (this.openProjectDropdownRowId === row.id) {
+      this.openProjectDropdownRowId = undefined;
+    }
+  }
+
+  isPtoPayCode(payCode: string): boolean {
+    return String(payCode ?? '').trim().toUpperCase() === 'PTO';
   }
 
   selectProjectOption(row: TimeSheetRow, option: WorkOrderProjectOption): void {
@@ -1007,7 +1039,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       technicianId: this.getCurrentTechnicianId(),
       workOrderId: 0,
       payCode: 'REGULAR',
-      expenseCode: '',
+      expenseCode: this.defaultExpenseCode,
       hours: null,
       amount: '',
       department: '',
@@ -1071,6 +1103,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   canDeleteRow(row: TimeSheetRow, _index: number): boolean {
     return this.getDateRowCount(row.date) > 1;
+  }
+
+  isCurrentDateRow(row: TimeSheetRow): boolean {
+    const rowDate = this.toDateKey(row?.date);
+    if (!rowDate) {
+      return false;
+    }
+    return rowDate === this.toIsoDate(new Date());
   }
 
   private isFirstRowForDate(index: number, date: string): boolean {
@@ -1174,6 +1214,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
     const parsed = Number(raw);
     row.hours = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
+    if ((Number(row.hours) || 0) > 0 && !String(row.expenseCode ?? '').trim()) {
+      row.expenseCode = this.defaultExpenseCode;
+    }
   }
 
   getDailyTotalHours(date: string): number {
@@ -1312,10 +1355,6 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       if (!String(row.expenseCode ?? '').trim()) {
         missing.push('Expense Code');
       }
-      if (!String(row.project ?? '').trim()) {
-        missing.push('Project');
-      }
-
       if (missing.length) {
         errors[row.id] = `Required: ${missing.join(', ')}.`;
       }
@@ -1345,7 +1384,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         technicianId: this.getCurrentTechnicianId(),
         workOrderId: 0,
         payCode: 'REGULAR',
-        expenseCode: '',
+        expenseCode: this.defaultExpenseCode,
         hours: null,
         amount: '',
         department: '',
@@ -1429,8 +1468,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             this.timeSheetWorkOrderTypeOptions = options.length
               ? options
               : [
-                  { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '' },
-                  { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '' }
+                  { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '', costTreatment: '' },
+                  { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '', costTreatment: '' }
                 ];
             this.cdr.detectChanges();
           });
@@ -1438,8 +1477,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         error: () => {
           this.zone.run(() => {
             this.timeSheetWorkOrderTypeOptions = [
-              { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '' },
-              { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '' }
+              { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '', costTreatment: '' },
+              { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '', costTreatment: '' }
             ];
             this.cdr.detectChanges();
           });
@@ -1506,18 +1545,20 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .split(/[\n,|]/)
       .map((item) => item.trim())
       .filter((item) => !!item)
-      .map((item) => ({ value: item, label: item, propertyUnit: '', defaultGlAccount: '' }));
+      .map((item) => ({ value: item, label: item, propertyUnit: '', defaultGlAccount: '', costTreatment: '' }));
   }
 
   private toWorkOrderTypeOption(item: any): TimeSheetWorkOrderTypeOption {
     const label = this.extractWorkOrderTypeLabel(item).trim();
     const propertyUnit = this.extractItemField(item, ['property_unit', 'propertyUnit']).trim();
     const defaultGlAccount = this.extractItemField(item, ['default_gl_account', 'defaultGlAccount']).trim();
+    const costTreatment = this.extractItemField(item, ['cost_treatment', 'costTreatment']).trim().toUpperCase();
     return {
       value: label,
       label,
       propertyUnit,
-      defaultGlAccount
+      defaultGlAccount,
+      costTreatment
     };
   }
 
@@ -1653,9 +1694,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       });
   }
 
-  private resolveProjectOptionsSource(account?: string | null): ProjectOptionsSource {
-    const normalized = String(account ?? '').trim();
-    return normalized === '10700' ? 'capex' : 'default';
+  private resolveProjectOptionsSource(row?: TimeSheetRow | null): ProjectOptionsSource {
+    const selectedValue = String(row?.entryType ?? '').trim();
+    if (!selectedValue) {
+      return 'default';
+    }
+    const selectedType = this.timeSheetWorkOrderTypeOptions.find((item) => item.value === selectedValue);
+    return selectedType?.costTreatment === 'CAPEX' ? 'capex' : 'default';
   }
 
   applyTemplate(): void {
@@ -2097,6 +2142,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const inferredEntryType = String(row?.entry_type ?? row?.entryType ?? '').trim().toUpperCase();
     const normalizedEntryType = inferredEntryType
       || (row?.expense_code || row?.expenseCode || row?.company_number || row?.companyNumber || row?.expense_amount || row?.expenseAmount ? 'EXPENSE' : 'TIME');
+    const expenseCode = String(row?.expense_code ?? row?.expenseCode ?? '').trim();
     return {
       id: this.nextTimeSheetRowId++,
       date: row?.date ?? this.payPeriodStart,
@@ -2104,7 +2150,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       technicianId: Number(row?.technician_id ?? row?.technicianId) || this.getCurrentTechnicianId(),
       workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
       payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
-      expenseCode: String(row?.expense_code ?? row?.expenseCode ?? '').trim(),
+      expenseCode: expenseCode || this.defaultExpenseCode,
       hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
       amount: String(row?.company_number ?? row?.companyNumber ?? row?.amount ?? row?.expense_amount ?? row?.expenseAmount ?? '').trim(),
       department: row?.department ?? row?.accounting_unit ?? row?.accountingUnit ?? '',
@@ -2185,7 +2231,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const hasProject = !!String(row.project ?? '').trim().length;
     const hasComment = !!String(row.comment ?? '').trim().length;
     const hasEntryType = !!String(row.entryType ?? '').trim().length;
-    const hasExpenseCode = !!String(row.expenseCode ?? '').trim().length;
+    const expenseCode = String(row.expenseCode ?? '').trim();
+    const hasExpenseCode = !!expenseCode.length && expenseCode !== this.defaultExpenseCode;
     const hasAmount = !!String(row.amount ?? '').trim().length;
     const hasNonDefaultPayCode = payCode.length > 0 && payCode !== 'REGULAR';
     return hours > 0 || hasDepartment || hasAccount || hasProject || hasComment || hasEntryType || hasExpenseCode || hasAmount || hasNonDefaultPayCode || !!row.markedForDelete;
@@ -2199,7 +2246,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (explicit === 'TIME') {
       return 'TIME';
     }
-    if (this.parseAmount(row.amount) > 0 || !!String(row.expenseCode ?? '').trim().length) {
+    const expenseCode = String(row.expenseCode ?? '').trim();
+    if (this.parseAmount(row.amount) > 0 || (!!expenseCode.length && expenseCode !== this.defaultExpenseCode)) {
       return 'EXPENSE';
     }
     return 'TIME';
@@ -2304,7 +2352,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
               { label: 'Total Technicians', value: totalTechnicians, accent: 'blue' },
               { label: 'Available Today', value: availableToday, accent: 'green' },
               { label: 'On Leave', value: onLeave, accent: 'amber' },
-              { label: 'Work Orders', value: workOrders, accent: 'purple' }
+              { label: 'Work Order', value: workOrders, accent: 'purple' }
             ];
 
             const activitySource = data.recentActivities ?? data.recent_activities ?? [];
@@ -2327,7 +2375,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
               { label: 'Total Technicians', value: 0, accent: 'blue' },
               { label: 'Available Today', value: 0, accent: 'green' },
               { label: 'On Leave', value: 0, accent: 'amber' },
-              { label: 'Work Orders', value: 0, accent: 'purple' }
+              { label: 'Work Order', value: 0, accent: 'purple' }
             ];
             this.activities = [];
             this.dashboardLoading = false;

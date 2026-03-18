@@ -15,6 +15,7 @@ import { Loader } from '../loader/loader';
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_UPLOAD_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'pdf']);
 const ALLOWED_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+const PHONE_NUMBER_REGEX = /^\d\+\d{3}-\d{3}-\d{4}$/;
 
 @Component({
   selector: 'app-technician-form',
@@ -68,7 +69,7 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
       status: ['', Validators.required],
       technicianIdCode: [''],
       badgeNumber: [''],
-      phoneNumber: [''],
+      phoneNumber: ['', Validators.pattern(PHONE_NUMBER_REGEX)],
       email: ['', Validators.email],
       skills: [''],
       certifications: [''],
@@ -135,6 +136,32 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
       return;
     }
     this.form.get(controlName)?.setValue(file.name);
+  }
+
+  onPhoneNumberInput(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+    const digits = String(input.value ?? '').replace(/\D/g, '').slice(0, 11);
+
+    if (!digits) {
+      this.form.get('phoneNumber')?.setValue('', { emitEvent: false });
+      return;
+    }
+
+    let masked = digits.slice(0, 1);
+    if (digits.length > 1) {
+      masked += `+${digits.slice(1, 4)}`;
+    }
+    if (digits.length > 4) {
+      masked += `-${digits.slice(4, 7)}`;
+    }
+    if (digits.length > 7) {
+      masked += `-${digits.slice(7, 11)}`;
+    }
+
+    this.form.get('phoneNumber')?.setValue(masked, { emitEvent: false });
   }
 
   submit(): void {

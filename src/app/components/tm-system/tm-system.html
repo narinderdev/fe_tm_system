@@ -478,7 +478,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Work Order ID</th>
+                    <th>Work Order Number</th>
                     <th>Name</th>
                     <th>Description</th>
                     <th>Assigned To</th>
@@ -541,7 +541,7 @@
           <section class="lh-card">
             <div class="lh-tabs">
               <button type="button" [class.active]="leavesView === 'leaves'" (click)="setLeavesView('leaves')">PTO</button>
-              <button type="button" [class.active]="leavesView === 'holidays'" (click)="setLeavesView('holidays')">Holidays</button>
+              <button type="button" [class.active]="leavesView === 'holidays'" (click)="setLeavesView('holidays')">Holiday</button>
             </div>
 
             <div class="table-wrapper">
@@ -959,7 +959,7 @@
                   </thead>
                   <tbody>
                     <ng-container *ngFor="let row of timeSheetRows; let i = index">
-                    <tr [class.timesheet-row-added]="row.isNewlyAdded">
+                    <tr [class.timesheet-row-added]="row.isNewlyAdded" [class.timesheet-row-today]="isCurrentDateRow(row)">
                       <td>
                         <div class="timesheet-date-cell">
                           <input *ngIf="shouldShowPlusForRow(row, i)" type="date" [(ngModel)]="row.date" />
@@ -994,7 +994,7 @@
                         </select>
                       </td>
                       <td>
-                        <select [(ngModel)]="row.payCode" [disabled]="row.entryType === 'EXPENSE'">
+                        <select [(ngModel)]="row.payCode" [disabled]="row.entryType === 'EXPENSE'" (ngModelChange)="onPayCodeChange(row)">
                           <option *ngFor="let code of timeSheetPayCodes" [value]="code.value">{{ code.label }}</option>
                         </select>
                       </td>
@@ -1029,7 +1029,6 @@
                       </td>
                       <td>
                         <select [(ngModel)]="row.expenseCode" [disabled]="row.entryType === 'TIME'">
-                          <option value="">Select</option>
                           <option *ngFor="let expenseCode of timeSheetExpenseCodeOptions" [value]="expenseCode">{{ expenseCode }}</option>
                         </select>
                       </td>
@@ -1039,12 +1038,15 @@
                             type="button"
                             class="timesheet-project-trigger"
                             style="width: 100%; height: 36px; border: 1px solid #c8d5e6; border-radius: 10px; padding: 0 10px; background: #fff; display: flex; align-items: center; justify-content: space-between; cursor: pointer;"
-                            (click)="toggleProjectDropdown(row.id, $event)">
+                            [disabled]="isPtoPayCode(row.payCode)"
+                            [style.opacity]="isPtoPayCode(row.payCode) ? '0.6' : '1'"
+                            [style.cursor]="isPtoPayCode(row.payCode) ? 'not-allowed' : 'pointer'"
+                            (click)="!isPtoPayCode(row.payCode) && toggleProjectDropdown(row.id, $event)">
                             <span>{{ row.project || 'Select' }}</span>
                             <span class="timesheet-project-caret" style="color: #64748b;">▾</span>
                           </button>
 
-                          <div class="timesheet-project-menu" style="position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; border: 1px solid #c8d5e6; border-radius: 10px; background: #fff; box-shadow: 0 8px 14px rgba(15, 23, 42, 0.1); z-index: 20;" *ngIf="openProjectDropdownRowId === row.id">
+                          <div class="timesheet-project-menu" style="position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; border: 1px solid #c8d5e6; border-radius: 10px; background: #fff; box-shadow: 0 8px 14px rgba(15, 23, 42, 0.1); z-index: 20;" *ngIf="!isPtoPayCode(row.payCode) && openProjectDropdownRowId === row.id">
                             <div class="timesheet-project-loading" style="padding: 8px 10px; color: #64748b;" *ngIf="timeSheetProjectOptionsLoading">Loading projects...</div>
 
                             <ng-container *ngIf="!timeSheetProjectOptionsLoading">

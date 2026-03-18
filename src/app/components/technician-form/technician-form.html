@@ -8,8 +8,8 @@
       <a routerLink="/tm-system/dashboard">Dashboard</a>
       <a routerLink="/tm-system/technicians" class="active">Technician List</a>
       <a routerLink="/tm-system/teams">Teams</a>
-      <a routerLink="/tm-system/work-orders">Work Orders</a>
-      <a routerLink="/tm-system/leaves">PTO & Holidays</a>
+      <a routerLink="/tm-system/work-orders">Work Order</a>
+      <a routerLink="/tm-system/leaves">PTO & Holiday</a>
       <a routerLink="/tm-system/time-sheet">Time Sheet</a>
     </nav>
     <button type="button" class="signout" (click)="signOut()">Sign Out</button>
@@ -74,7 +74,17 @@
 
       <div class="field">
         <label>Phone Number</label>
-        <input type="text" placeholder="+1 (555) 123-4567" formControlName="phoneNumber" />
+        <input
+          type="text"
+          placeholder="1+747-556-3457"
+          maxlength="14"
+          inputmode="numeric"
+          formControlName="phoneNumber"
+          (input)="onPhoneNumberInput($event)"
+        />
+        <small class="error" *ngIf="form.get('phoneNumber')?.touched && form.get('phoneNumber')?.errors?.['pattern']">
+          Phone number must be in format: 1+747-556-3457
+        </small>
       </div>
 
       <div class="field">
@@ -137,7 +147,7 @@
 
         <div class="actions">
           <button type="button" class="cancel" (click)="cancel()">Close</button>
-          <button type="submit" class="submit" [disabled]="submitting">{{ submitLabel }}</button>
+          <button type="submit" class="submit" [disabled]="submitting || form.invalid">{{ submitLabel }}</button>
         </div>
       </form>
     </div>
