@@ -362,6 +362,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { value: 'BEREAVEMENT', label: 'Bereavement', type: 'non-worked' }
   ];
   readonly ptoDefaultAccount = '70000';
+  readonly capexDefaultAccount = '10700';
   readonly defaultExpenseCode = '0040';
   readonly timeSheetExpenseCodeOptions: string[] = ['0040', '0042', '0068', '0050'];
 
@@ -968,6 +969,16 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     row.project = option.workOrderNumber || option.name;
     row.workOrderId = option.id;
     this.openProjectDropdownRowId = undefined;
+  }
+
+  clearProjectSelection(row: TimeSheetRow): void {
+    row.project = '';
+    row.workOrderId = 0;
+    this.openProjectDropdownRowId = undefined;
+  }
+
+  getProjectSelectLabel(row: TimeSheetRow): string {
+    return this.resolveProjectOptionsSource(row) === 'capex' ? 'Select Capex' : 'Select';
   }
 
   markProjectAsFavourite(option: WorkOrderProjectOption, event: MouseEvent): void {
@@ -1623,7 +1634,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
 
     const department = selectedType.propertyUnit || selectedValue;
-    const account = selectedType.defaultGlAccount;
+    const account = selectedType.costTreatment === 'CAPEX'
+      ? this.capexDefaultAccount
+      : selectedType.defaultGlAccount;
 
     if (department) {
       row.department = department;

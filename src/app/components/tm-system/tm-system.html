@@ -1029,6 +1029,7 @@
                       </td>
                       <td>
                         <select [(ngModel)]="row.expenseCode" [disabled]="row.entryType === 'TIME'">
+                          <option value="">Select</option>
                           <option *ngFor="let expenseCode of timeSheetExpenseCodeOptions" [value]="expenseCode">{{ expenseCode }}</option>
                         </select>
                       </td>
@@ -1042,7 +1043,7 @@
                             [style.opacity]="isPtoPayCode(row.payCode) ? '0.6' : '1'"
                             [style.cursor]="isPtoPayCode(row.payCode) ? 'not-allowed' : 'pointer'"
                             (click)="!isPtoPayCode(row.payCode) && toggleProjectDropdown(row.id, $event)">
-                            <span>{{ row.project || 'Select' }}</span>
+                            <span>{{ row.project || getProjectSelectLabel(row) }}</span>
                             <span class="timesheet-project-caret" style="color: #64748b;">▾</span>
                           </button>
 
@@ -1050,6 +1051,15 @@
                             <div class="timesheet-project-loading" style="padding: 8px 10px; color: #64748b;" *ngIf="timeSheetProjectOptionsLoading">Loading projects...</div>
 
                             <ng-container *ngIf="!timeSheetProjectOptionsLoading">
+                              <div class="timesheet-project-option" style="display: flex; align-items: center; border-bottom: 1px solid #edf2f7;">
+                                <button
+                                  type="button"
+                                  class="timesheet-project-option-label"
+                                  style="flex: 1; height: 32px; border: 0; background: transparent; text-align: left; padding: 0 10px; cursor: pointer;"
+                                  (click)="clearProjectSelection(row)">
+                                  {{ getProjectSelectLabel(row) }}
+                                </button>
+                              </div>
                               <div class="timesheet-project-empty" style="padding: 8px 10px; color: #64748b;" *ngIf="!timeSheetProjectOptions.length">No projects found.</div>
 
                               <div class="timesheet-project-option" style="display: flex; align-items: center; border-bottom: 1px solid #edf2f7;" *ngFor="let option of timeSheetProjectOptions">
