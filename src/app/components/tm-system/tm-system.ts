@@ -2146,23 +2146,27 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return dayRows.map((row: any) => ({
         ...row,
         date: row?.date ?? dayDate,
-        day_of_week: row?.day_of_week ?? day?.day_of_week ?? this.dayOfWeekLabel(dayDate)
+        day_of_week: row?.day_of_week ?? row?.dayOfWeek ?? day?.day_of_week ?? day?.dayOfWeek ?? this.dayOfWeekLabel(dayDate)
       }));
     });
   }
 
   private toUiTimeSheetRow(row: any): TimeSheetRow {
+    const explicitWorkOrderType = String(row?.work_order_type ?? row?.workOrderType ?? '').trim();
     const inferredEntryType = String(row?.entry_type ?? row?.entryType ?? '').trim().toUpperCase();
-    const normalizedEntryType = inferredEntryType
+    const normalizedEntryType = explicitWorkOrderType
+      || inferredEntryType
       || (row?.expense_code || row?.expenseCode || row?.company_number || row?.companyNumber || row?.expense_amount || row?.expenseAmount ? 'EXPENSE' : 'TIME');
     const expenseCode = String(row?.expense_code ?? row?.expenseCode ?? '').trim();
+    const incomingPayCode = String(row?.pay_code ?? row?.payCode ?? 'REGULAR').trim().toUpperCase();
+    const normalizedPayCode = incomingPayCode === 'REG' ? 'REGULAR' : incomingPayCode;
     return {
       id: this.nextTimeSheetRowId++,
       date: row?.date ?? this.payPeriodStart,
       entryType: normalizedEntryType,
       technicianId: Number(row?.technician_id ?? row?.technicianId) || this.getCurrentTechnicianId(),
       workOrderId: Number(row?.work_order_id ?? row?.workOrderId) || 0,
-      payCode: String(row?.pay_code ?? row?.payCode ?? 'REGULAR').toUpperCase(),
+      payCode: normalizedPayCode,
       expenseCode: expenseCode || this.defaultExpenseCode,
       hours: row?.hours === null || row?.hours === undefined ? null : Number(row.hours),
       amount: String(row?.company_number ?? row?.companyNumber ?? row?.amount ?? row?.expense_amount ?? row?.expenseAmount ?? '').trim(),
@@ -2181,11 +2185,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     day_of_week: string;
     daily_total: number;
     rows: Array<{
-      entry_type: string;
-      pay_code?: string;
-      hours?: number;
-      company_number?: string;
-      expense_code?: string;
+      pay_code: string;
+      hours: number;
+      company_number: string;
+      work_order_type: string;
+      expense_code: string;
       accounting_unit: string;
       ferc: string;
       activity: string;
@@ -2204,34 +2208,23 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     return Array.from(grouped.entries())
       .sort(([a], [b]) => String(a).localeCompare(String(b)))
       .map(([date, dayRows]) => {
-        const dailyTotal = Number(dayRows.reduce((sum, row) => sum + this.rowContribution(row), 0).toFixed(2));
+        const dailyTotal = Number(dayRows.reduce((sum, row) => sum + (Number(row.hours) || 0), 0).toFixed(2));
         return {
           date,
           day_of_week: this.dayOfWeekLabel(date),
           daily_total: dailyTotal,
-          rows: dayRows.map((row) => {
-            const entryType = this.normalizeEntryType(row);
-            const base = {
-              entry_type: entryType,
-              company_number: String(row.amount ?? '').trim(),
-              accounting_unit: row.department || '',
-              ferc: row.account || '',
-              activity: row.project || '',
-              comment: row.comment || '',
-              is_deleted: !!row.markedForDelete
-            };
-            if (entryType === 'EXPENSE') {
-              return {
-                ...base,
-                expense_code: String(row.expenseCode ?? '').trim().toUpperCase()
-              };
-            }
-            return {
-              ...base,
-              pay_code: this.normalizePayCode(row.payCode),
-              hours: Number(row.hours) || 0
-            };
-          })
+          rows: dayRows.map((row) => ({
+            pay_code: this.normalizePayCode(row.payCode),
+            hours: Number(row.hours) || 0,
+            company_number: String(row.amount ?? '').trim(),
+            work_order_type: String(row.entryType ?? '').trim(),
+            expense_code: String(row.expenseCode ?? '').trim().toUpperCase(),
+            accounting_unit: row.department || '',
+            ferc: row.account || '',
+            activity: row.project || '',
+            comment: row.comment || '',
+            is_deleted: !!row.markedForDelete
+          }))
         };
       });
   }
