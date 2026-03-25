@@ -105,6 +105,7 @@ export interface TechnicianTeamDetailResponse {
 }
 
 export interface CreateTechnicianPayload {
+  companyId?: number;
   technicianId?: string;
   badgeNumber?: string;
   firstName: string;
@@ -130,6 +131,7 @@ export interface CreateTechnicianPayload {
 }
 
 export interface CreateTechnicianTeamPayload {
+  companyId?: number;
   teamName: string;
   status: string;
   startDate?: string;

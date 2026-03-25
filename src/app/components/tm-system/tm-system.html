@@ -64,8 +64,27 @@
 
     <main class="tm-main">
       <app-loader [visible]="isLoading"></app-loader>
-      <div class="tm-main-header">
+      <div class="tm-main-header" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
         <h1>{{ activeLabel }}</h1>
+        <div
+          *ngIf="selectedCompanyLabel"
+          style="display: inline-flex; align-items: center; gap: 8px; border: 1px solid #94b7ff; border-radius: 999px; background: #eaf2ff; color: #2452a6; min-height: 40px; padding: 0 14px; max-width: 100%;"
+        >
+          <ng-container *ngIf="showCompanyDropdown; else companyTextView">
+            <select
+              [ngModel]="selectedCompanyIndex"
+              (ngModelChange)="onCompanyChange($event)"
+              style="border: none; background: transparent; color: #2452a6; font-size: 16px; font-weight: 500; min-height: 36px; max-width: 280px; outline: none; cursor: pointer;"
+            >
+              <option *ngFor="let company of companyOptions; let i = index" [ngValue]="i">
+                {{ company.company_trade_name }} - {{ company.company_number }}
+              </option>
+            </select>
+          </ng-container>
+          <ng-template #companyTextView>
+            <span style="font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ selectedCompanyLabel }}</span>
+          </ng-template>
+        </div>
       </div>
 
       <ng-container [ngSwitch]="activeTab">
@@ -414,6 +433,10 @@
                   <div class="form-group half">
                     <label class="form-label">Availability</label>
                     <input class="form-input" [value]="teamForm.status === 'ACTIVE' ? 'Available' : 'Unavailable'" disabled />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Company</label>
+                    <input class="form-input" [value]="selectedCompanyLabel || '-'" disabled />
                   </div>
                   <div class="form-group">
                     <label class="form-label">Technicians</label>
@@ -999,10 +1022,17 @@
                         </select>
                       </td>
                       <td>
-                        <input type="number" min="0" step="0.25" [ngModel]="row.hours" (ngModelChange)="onHoursInput(row, $event)" />
+                        <input
+                          type="number"
+                          min="0"
+                          max="24"
+                          step="0.25"
+                          [ngModel]="row.hours"
+                          (input)="onHoursInputEvent(row, $event)"
+                        />
                       </td>
                       <td>
-                        <input type="text" [(ngModel)]="row.amount" placeholder="Company Number" />
+                        <input type="text" [(ngModel)]="row.amount" placeholder="Company Number" disabled />
                       </td>
                       <td class="timesheet-day-total">
                         <ng-container *ngIf="shouldShowPlusForRow(row, i)">

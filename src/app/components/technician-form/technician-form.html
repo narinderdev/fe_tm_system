@@ -48,6 +48,11 @@
       </div>
 
       <div class="field">
+        <label>Company</label>
+        <input type="text" [value]="selectedCompanyLabel" disabled />
+      </div>
+
+      <div class="field">
         <label>Location</label>
         <input type="text" placeholder="Enter location" formControlName="address" />
         <small class="error" *ngIf="form.get('address')?.touched && form.get('address')?.invalid">Location is required.</small>

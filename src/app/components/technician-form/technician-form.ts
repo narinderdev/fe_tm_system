@@ -27,6 +27,7 @@ const PHONE_NUMBER_REGEX = /^\d\+\d{3}-\d{3}-\d{4}$/;
 export class TechnicianFormComponent implements OnInit, OnDestroy {
   isEditMode = false;
   technicianId?: number;
+  selectedCompanyLabel = '';
   loading = false;
   submitting = false;
   loadMessage = '';
@@ -88,6 +89,7 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
     const idParam = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!idParam;
     this.technicianId = idParam ? Number(idParam) : undefined;
+    this.loadSelectedCompanyLabel();
     this.loadPageData();
   }
 
@@ -319,9 +321,21 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
       });
   }
 
+  private loadSelectedCompanyLabel(): void {
+    const tradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
+    const companyNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
+    if (!tradeName && !companyNumber) {
+      this.selectedCompanyLabel = '';
+      return;
+    }
+    this.selectedCompanyLabel = `${tradeName}${tradeName && companyNumber ? ' - ' : ''}${companyNumber}`;
+  }
+
   private toPayload(): CreateTechnicianPayload {
     const value = this.form.getRawValue();
+    const companyId = this.getSelectedCompanyId();
     return {
+      companyId,
       technicianId: value.technicianIdCode || undefined,
       badgeNumber: value.badgeNumber || undefined,
       firstName: String(value.firstName ?? '').trim(),
@@ -356,5 +370,11 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
     const isAllowedMime = !file.type || ALLOWED_UPLOAD_MIME_TYPES.has(file.type);
     const isAllowedSize = file.size > 0 && file.size <= MAX_UPLOAD_SIZE_BYTES;
     return isAllowedExtension && isAllowedMime && isAllowedSize;
+  }
+
+  private getSelectedCompanyId(): number | undefined {
+    const raw = String(localStorage.getItem('selectedCompanyId') ?? '').trim();
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }
 }

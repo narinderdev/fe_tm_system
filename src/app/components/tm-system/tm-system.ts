@@ -149,6 +149,12 @@ interface TeamFormModel {
   technicianIds: number[];
 }
 
+interface StoredCompany {
+  id?: number | string | null;
+  company_number: string;
+  company_trade_name: string;
+}
+
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_UPLOAD_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'pdf']);
 const ALLOWED_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
@@ -166,6 +172,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   readonly iconPath = '/assets/icons/';
 
   mobileMenuOpen = false;
+  companyOptions: StoredCompany[] = [];
+  selectedCompanyIndex = 0;
 
   techniciansLoading = false;
   teamsLoading = false;
@@ -386,6 +394,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.loadCompanyOptions();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
       const tab = (params.get('tab') as TabId | null) || 'dashboard';
       this.activeTab = this.isValidTab(tab) ? tab : 'dashboard';
@@ -943,7 +952,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return;
     }
     row.expenseCode = this.defaultExpenseCode;
-    row.amount = '';
+    row.amount = this.getSelectedCompanyNumber();
   }
 
   onPayCodeChange(row: TimeSheetRow): void {
@@ -1052,7 +1061,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       payCode: 'REGULAR',
       expenseCode: this.defaultExpenseCode,
       hours: null,
-      amount: '',
+      amount: this.getSelectedCompanyNumber(),
       department: '',
       account: '',
       project: '',
@@ -1224,10 +1233,45 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return;
     }
     const parsed = Number(raw);
-    row.hours = Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      row.hours = null;
+      return;
+    }
+    const remainingForDate = this.getRemainingHoursForDate(row);
+    row.hours = Number(Math.min(24, remainingForDate, parsed).toFixed(2));
     if ((Number(row.hours) || 0) > 0 && !String(row.expenseCode ?? '').trim()) {
       row.expenseCode = this.defaultExpenseCode;
     }
+  }
+
+  onHoursInputEvent(row: TimeSheetRow, event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    this.onHoursInput(row, input.value);
+
+    if (row.hours === null) {
+      input.value = '';
+      return;
+    }
+
+    input.value = String(row.hours);
+  }
+
+  private getRemainingHoursForDate(targetRow: TimeSheetRow): number {
+    const dateKey = this.toDateKey(targetRow.date);
+    const otherRowsTotal = this.timeSheetRows.reduce((sum, row) => {
+      if (row.id === targetRow.id) {
+        return sum;
+      }
+      if (this.toDateKey(row.date) !== dateKey) {
+        return sum;
+      }
+      return sum + (Number(row.hours) || 0);
+    }, 0);
+    return Math.max(0, Number((24 - otherRowsTotal).toFixed(2)));
   }
 
   getDailyTotalHours(date: string): number {
@@ -1347,6 +1391,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         return;
       }
 
+      if ((Number(row.hours) || 0) > 24) {
+        errors[row.id] = 'Hours cannot exceed 24.';
+        return;
+      }
+
       const missing: string[] = [];
       if (!String(row.entryType ?? '').trim()) {
         missing.push('Work Order Type');
@@ -1371,6 +1420,26 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       }
     });
 
+    // Safety net: total worked hours per day cannot exceed 24.
+    const rowsByDate = new Map<string, TimeSheetRow[]>();
+    this.timeSheetRows.forEach((row) => {
+      if (row.markedForDelete) {
+        return;
+      }
+      const key = this.toDateKey(row.date);
+      const bucket = rowsByDate.get(key) ?? [];
+      bucket.push(row);
+      rowsByDate.set(key, bucket);
+    });
+    rowsByDate.forEach((rows) => {
+      const dailyTotal = rows.reduce((sum, row) => sum + (Number(row.hours) || 0), 0);
+      if (dailyTotal > 24) {
+        rows.forEach((row) => {
+          errors[row.id] = 'Daily total hours cannot exceed 24.';
+        });
+      }
+    });
+
     this.rowValidationErrors = errors;
     return !Object.keys(errors).length;
   }
@@ -1386,6 +1455,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     end.setHours(0, 0, 0, 0);
 
     const rows: TimeSheetRow[] = [];
+    const selectedCompanyNumber = this.getSelectedCompanyNumber();
     const cursor = new Date(start);
     while (cursor <= end) {
       rows.push({
@@ -1397,7 +1467,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         payCode: 'REGULAR',
         expenseCode: this.defaultExpenseCode,
         hours: null,
-        amount: '',
+        amount: selectedCompanyNumber,
         department: '',
         account: '',
       project: '',
@@ -1476,21 +1546,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: (response: any) => {
           this.zone.run(() => {
             const options = this.normalizeTimeSheetWorkOrderTypeOptions(response);
-            this.timeSheetWorkOrderTypeOptions = options.length
-              ? options
-              : [
-                  { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '', costTreatment: '' },
-                  { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '', costTreatment: '' }
-                ];
+            this.timeSheetWorkOrderTypeOptions = options;
             this.cdr.detectChanges();
           });
         },
         error: () => {
           this.zone.run(() => {
-            this.timeSheetWorkOrderTypeOptions = [
-              { value: 'TIME', label: 'TIME', propertyUnit: '', defaultGlAccount: '', costTreatment: '' },
-              { value: 'EXPENSE', label: 'EXPENSE', propertyUnit: '', defaultGlAccount: '', costTreatment: '' }
-            ];
+            this.timeSheetWorkOrderTypeOptions = [];
             this.cdr.detectChanges();
           });
         }
@@ -1524,10 +1586,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       if (list.length) {
         return normalizeList(list);
       }
+
+      // Object payload with empty list should not be stringified into "[object Object]".
+      return [];
     }
 
     const rawString = String(raw ?? '').trim();
-    if (!rawString) {
+    if (!rawString || /^\[object\s+[^\]]+\]$/i.test(rawString)) {
       return [];
     }
 
@@ -2239,9 +2304,17 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const hasEntryType = !!String(row.entryType ?? '').trim().length;
     const expenseCode = String(row.expenseCode ?? '').trim();
     const hasExpenseCode = !!expenseCode.length && expenseCode !== this.defaultExpenseCode;
-    const hasAmount = !!String(row.amount ?? '').trim().length;
     const hasNonDefaultPayCode = payCode.length > 0 && payCode !== 'REGULAR';
-    return hours > 0 || hasDepartment || hasAccount || hasProject || hasComment || hasEntryType || hasExpenseCode || hasAmount || hasNonDefaultPayCode || !!row.markedForDelete;
+    // Company number is auto-filled for every row, so it must not mark a row as "filled".
+    return hours > 0
+      || hasDepartment
+      || hasAccount
+      || hasProject
+      || hasComment
+      || hasEntryType
+      || hasExpenseCode
+      || hasNonDefaultPayCode
+      || !!row.markedForDelete;
   }
 
   private normalizeEntryType(row: TimeSheetRow): 'TIME' | 'EXPENSE' {
@@ -2253,7 +2326,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return 'TIME';
     }
     const expenseCode = String(row.expenseCode ?? '').trim();
-    if (this.parseAmount(row.amount) > 0 || (!!expenseCode.length && expenseCode !== this.defaultExpenseCode)) {
+    // Do not infer EXPENSE from company number (row.amount) because it is auto-filled.
+    if (!!expenseCode.length && expenseCode !== this.defaultExpenseCode) {
       return 'EXPENSE';
     }
     return 'TIME';
@@ -3174,6 +3248,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const status = String(this.teamForm.status ?? '').trim().toUpperCase();
     const technicianIds = [...new Set((this.teamForm.technicianIds ?? []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
     const teamLeaderId = this.teamForm.teamLeaderId ? Number(this.teamForm.teamLeaderId) : null;
+    const companyId = this.getSelectedCompanyId();
 
     if (!teamName || !status) {
       this.teamError = 'Please fill all required fields.';
@@ -3191,6 +3266,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.teamSubmitting = true;
     this.teamError = undefined;
     const payload = {
+      companyId,
       teamName,
       status,
       technicianIds,
@@ -3303,7 +3379,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     certificateUrl: string;
     teamId?: number;
   }): any {
+    const companyId = this.getSelectedCompanyId();
     return {
+      companyId,
       technicianId: input.autoGenerateTechnicianId ? undefined : input.technicianId,
       badgeNumber: input.badgeNumber || undefined,
       firstName: input.firstName,
@@ -3324,6 +3402,38 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       notes: input.notes || '',
       teamId: input.teamId
     };
+  }
+
+  private getSelectedCompanyId(): number | undefined {
+    const raw = String(localStorage.getItem('selectedCompanyId') ?? '').trim();
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
+  private getSelectedCompanyNumber(): string {
+    const fromOptions = String(this.companyOptions[this.selectedCompanyIndex]?.company_number ?? '').trim();
+    if (fromOptions) {
+      return fromOptions;
+    }
+    return String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
+  }
+
+  private applySelectedCompanyNumberToTimesheetRows(overwriteAll = false): void {
+    if (!this.timeSheetRows.length) {
+      return;
+    }
+    const selectedCompanyNumber = this.getSelectedCompanyNumber();
+    if (!selectedCompanyNumber) {
+      return;
+    }
+
+    this.timeSheetRows = this.timeSheetRows.map((row) => {
+      const current = String(row.amount ?? '').trim();
+      if (!overwriteAll && current) {
+        return row;
+      }
+      return { ...row, amount: selectedCompanyNumber };
+    });
   }
 
   private isValidUpload(file: File): boolean {
@@ -3818,6 +3928,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   signOut(): void {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('userCompanies');
+    localStorage.removeItem('selectedCompanyId');
+    localStorage.removeItem('selectedCompanyNumber');
+    localStorage.removeItem('selectedCompanyTradeName');
     this.router.navigate(['/login']);
   }
 
@@ -3892,6 +4006,148 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       lastName: '',
       email: ''
     };
+  }
+
+  private loadCompanyOptions(): void {
+    const raw = String(localStorage.getItem('userCompanies') ?? '').trim();
+    if (!raw) {
+      this.companyOptions = [];
+      this.selectedCompanyIndex = 0;
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      const companies = Array.isArray(parsed)
+        ? parsed
+            .map((company: any) => ({
+              id: company?.id ?? null,
+              company_number: String(company?.company_number ?? '').trim(),
+              company_trade_name: String(company?.company_trade_name ?? '').trim()
+            }))
+            .filter((company: StoredCompany) => company.company_number && company.company_trade_name)
+        : [];
+
+      this.companyOptions = companies;
+
+      if (!this.companyOptions.length) {
+        this.selectedCompanyIndex = 0;
+        return;
+      }
+
+      const selectedCompanyNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
+      const selectedCompanyTradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
+      const selectedIndex = this.companyOptions.findIndex((company) =>
+        company.company_number === selectedCompanyNumber
+        && company.company_trade_name === selectedCompanyTradeName
+      );
+
+      this.selectedCompanyIndex = selectedIndex >= 0 ? selectedIndex : 0;
+      this.persistSelectedCompany();
+    } catch {
+      this.companyOptions = [];
+      this.selectedCompanyIndex = 0;
+    }
+  }
+
+  onCompanyChange(nextIndex: number | string): void {
+    const parsedIndex = Number(nextIndex);
+    if (!Number.isFinite(parsedIndex)) {
+      return;
+    }
+
+    const boundedIndex = Math.max(0, Math.min(parsedIndex, this.companyOptions.length - 1));
+    if (boundedIndex === this.selectedCompanyIndex) {
+      return;
+    }
+    this.selectedCompanyIndex = boundedIndex;
+    this.persistSelectedCompany();
+    this.applySelectedCompanyNumberToTimesheetRows(true);
+    this.reloadActiveTabForCompanyChange();
+  }
+
+  private persistSelectedCompany(): void {
+    const selected = this.companyOptions[this.selectedCompanyIndex];
+    if (!selected) {
+      localStorage.removeItem('selectedCompanyId');
+      localStorage.removeItem('selectedCompanyNumber');
+      localStorage.removeItem('selectedCompanyTradeName');
+      return;
+    }
+
+    if (selected.id !== null && selected.id !== undefined) {
+      localStorage.setItem('selectedCompanyId', String(selected.id));
+    } else {
+      localStorage.removeItem('selectedCompanyId');
+    }
+    localStorage.setItem('selectedCompanyNumber', selected.company_number);
+    localStorage.setItem('selectedCompanyTradeName', selected.company_trade_name);
+  }
+
+  get showCompanyDropdown(): boolean {
+    return this.isAdminRole && this.companyOptions.length > 1;
+  }
+
+  get selectedCompanyLabel(): string {
+    const selected = this.companyOptions[this.selectedCompanyIndex];
+    if (!selected) {
+      return '';
+    }
+
+    return `${selected.company_trade_name} - ${selected.company_number}`;
+  }
+
+  private reloadActiveTabForCompanyChange(): void {
+    this.dashboardLoaded = false;
+    this.dashboardError = undefined;
+    this.techniciansLoaded = false;
+    this.teamsLoaded = false;
+    this.workOrdersLoaded = false;
+    this.leavesLoaded = false;
+    this.holidaysLoaded = false;
+    this.timeSheetList = [];
+    this.timeSheetListError = undefined;
+    this.timeSheetProjectOptions = [];
+    this.timeSheetDepartmentOptions = [];
+    this.timeSheetGlAccountOptions = [];
+    this.timeSheetWorkOrderTypeOptions = [];
+    this.loadedProjectOptionsSource = undefined;
+
+    switch (this.activeTab) {
+      case 'dashboard':
+        this.loadDashboard();
+        break;
+      case 'technicians':
+        this.loadTechnicians();
+        break;
+      case 'teams':
+        this.loadTeams();
+        break;
+      case 'work-orders':
+        this.loadWorkOrders();
+        break;
+      case 'leaves':
+        this.loadHolidays();
+        this.loadLeaves();
+        break;
+      case 'time-sheet':
+        if (this.isAdminRole) {
+          this.loadTimeSheetTechnicianOptions();
+        }
+        if (this.timeSheetScreenMode === 'create') {
+          this.loadTimeSheetProjectOptions();
+          this.loadTimeSheetWorkOrderTypeOptions(true);
+          this.loadTimeSheetDepartmentOptions();
+          this.loadTimeSheetGlAccountOptions();
+        } else {
+          this.loadTimesheetList();
+        }
+        break;
+      default:
+        break;
+    }
+
+    this.cdr.detectChanges();
   }
 
   toggleMobileMenu(): void {

@@ -12,6 +12,7 @@ import { provideToastr } from 'ngx-toastr';
 import { routes } from './app.routes';
 import { ServerErrorToastInterceptor } from './interceptors/server-error-toast.interceptor';
 import { AuthTokenInterceptor } from './interceptors/auth-token.interceptor';
+import { CompanyIdInterceptor } from './interceptors/company-id.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -28,6 +29,11 @@ export const appConfig: ApplicationConfig = {
     {
       provide: HTTP_INTERCEPTORS,
       useClass: AuthTokenInterceptor,
+      multi: true
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: CompanyIdInterceptor,
       multi: true
     }
   ]

@@ -121,6 +121,16 @@ export class LoginComponent {
               ? (response as any)?.data?.user?.id
               : undefined));
           const message = response?.message || (isSuccess ? 'Login successful' : 'Invalid credentials');
+          const companiesRaw = (response as any)?.data?.companies;
+          const companies = Array.isArray(companiesRaw)
+            ? companiesRaw
+                .map((company: any) => ({
+                  id: company?.id ?? null,
+                  company_number: String(company?.company_number ?? '').trim(),
+                  company_trade_name: String(company?.company_trade_name ?? '').trim()
+                }))
+                .filter((company: any) => company.company_number && company.company_trade_name)
+            : [];
 
           if (isSuccess) {
             if (this.isBrowser) {
@@ -148,6 +158,27 @@ export class LoginComponent {
                 localStorage.setItem('userRole', String(role));
               } else {
                 localStorage.removeItem('userRole');
+              }
+
+              if (companies.length) {
+                const existingNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
+                const existingTradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
+                const matchedCompany = companies.find((company: any) =>
+                  company.company_number === existingNumber && company.company_trade_name === existingTradeName
+                ) ?? companies[0];
+                localStorage.setItem('userCompanies', JSON.stringify(companies));
+                if (matchedCompany.id !== null && matchedCompany.id !== undefined) {
+                  localStorage.setItem('selectedCompanyId', String(matchedCompany.id));
+                } else {
+                  localStorage.removeItem('selectedCompanyId');
+                }
+                localStorage.setItem('selectedCompanyNumber', matchedCompany.company_number);
+                localStorage.setItem('selectedCompanyTradeName', matchedCompany.company_trade_name);
+              } else {
+                localStorage.removeItem('userCompanies');
+                localStorage.removeItem('selectedCompanyId');
+                localStorage.removeItem('selectedCompanyNumber');
+                localStorage.removeItem('selectedCompanyTradeName');
               }
 
               // Token may or may not be present depending on MFA flow.
