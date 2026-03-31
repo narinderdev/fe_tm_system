@@ -120,6 +120,11 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
 
   signOut(): void {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('mfa_token');
+    localStorage.removeItem('mfaEnabled');
+    localStorage.removeItem('emailOtpVerified');
+    localStorage.removeItem('authenticatorVerified');
+    localStorage.removeItem('loginEmail');
     localStorage.removeItem('userRole');
     this.router.navigate(['/login']);
   }

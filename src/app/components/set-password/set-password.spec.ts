@@ -36,7 +36,7 @@ describe('SetPasswordComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              queryParamMap: convertToParamMap({ email: 'invite@example.com' })
+              queryParamMap: convertToParamMap({ email: 'invite@example.com', token: 'invite-token' })
             }
           }
         }
@@ -75,7 +75,7 @@ describe('SetPasswordComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    expect(component.globalError).toBe('Invalid link. Email parameter is missing.');
+    expect(component.globalError).toBe('Invalid link. Required email/token parameters are missing.');
     expect(component.disableSubmit).toBe(true);
   });
 
@@ -104,7 +104,8 @@ describe('SetPasswordComponent', () => {
 
     expect(userManagementServiceMock.setPassword).toHaveBeenCalledWith({
       email: 'invite@example.com',
-      password: 'Password$Strong'
+      password: 'Password$Strong',
+      invitationToken: 'invite-token'
     });
     expect(toastrMock.success).toHaveBeenCalledWith('Password set successfully! You can now login.');
     expect(navigateSpy).toHaveBeenCalledWith(['/login']);

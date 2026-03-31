@@ -13,6 +13,7 @@ import { TimesheetService } from '../../services/timesheet.service';
 import { ToastrService } from 'ngx-toastr';
 import { PermissionService } from '../../services/permission.service';
 import { UserManagementService } from '../../services/user-management.service';
+import { MfaSettingsComponent } from '../mfa-settings/mfa-settings';
 
 interface Activity {
   technician: string;
@@ -33,7 +34,7 @@ interface NavItem {
   icon: string;
 }
 
-type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'settings';
+type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'mfa' | 'settings';
 type PayCodeType = 'worked' | 'non-worked' | 'premium';
 
 interface TimeSheetPayCode {
@@ -162,7 +163,7 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'applicati
 @Component({
   selector: 'app-tm-system',
   standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, Loader, DeleteModalComponent],
+  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, Loader, DeleteModalComponent, MfaSettingsComponent],
   templateUrl: './tm-system.html',
   styleUrls: ['./tm-system.css']
 })
@@ -433,11 +434,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (this.activeTab === 'dashboard') {
       return 'Dashboard';
     }
+    if (this.activeTab === 'mfa') {
+      return 'MFA Settings';
+    }
     return this.activeNav?.label ?? '';
   }
 
   private isValidTab(value: string): value is TabId {
-    return this.navItems.some(i => i.id === value);
+    return value === 'mfa' || this.navItems.some(i => i.id === value);
   }
 
   private loadTabData(tab: TabId): void {
@@ -3927,6 +3931,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   signOut(): void {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('mfa_token');
+    localStorage.removeItem('mfaEnabled');
+    localStorage.removeItem('emailOtpVerified');
+    localStorage.removeItem('authenticatorVerified');
+    localStorage.removeItem('loginEmail');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userCompanies');
     localStorage.removeItem('selectedCompanyId');

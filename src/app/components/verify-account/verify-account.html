@@ -1,0 +1,29 @@
+<div class="otp-page">
+  <div class="otp-card">
+    <h2>Verify Account</h2>
+    <p>Enter the 6-digit code sent to <strong>{{ email }}</strong></p>
+
+    <app-otp-code-input
+      class="otp-field-group"
+      [length]="otpLength"
+      [value]="otpCode"
+      [autoFocus]="true"
+      [disabled]="loading"
+      groupAriaLabel="Email verification code"
+      inputAriaLabelPrefix="Email OTP digit"
+      (valueChange)="onOtpValueChange($event)"
+    ></app-otp-code-input>
+
+    <button class="verify-btn" type="button" (click)="verifyOtp()" [disabled]="loading || otpCode.length !== otpLength">
+      <ng-container *ngIf="!loading; else loadingTpl">Verify Email OTP</ng-container>
+      <ng-template #loadingTpl>
+        <app-spinner></app-spinner>
+      </ng-template>
+    </button>
+
+    <p class="switch-auth">
+      Back to
+      <a routerLink="/login">Login</a>
+    </p>
+  </div>
+</div>

@@ -94,12 +94,23 @@ export class LoginComponent {
     this.form.patchValue({ email, password });
 
     this.loading = true;
-    this.authService.login({ email, password }).subscribe({
+    this.authService.startLogin({ email, password }).subscribe({
         next: (response: any) => {
           const statusCode = response?.statusCode;
           const isSuccess = statusCode === 200 || statusCode === 201;
           const token = (response as any)?.data?.token || (response as any)?.token;
-          const mfaToken = (response as any)?.data?.mfa_token ?? (response as any)?.mfa_token ?? null;
+          const mfaToken =
+            (response as any)?.data?.mfaToken ??
+            (response as any)?.data?.mfa_token ??
+            (response as any)?.mfaToken ??
+            (response as any)?.mfa_token ??
+            null;
+          const mfaRequired = !!(
+            (response as any)?.data?.mfaRequired ??
+            (response as any)?.data?.mfa_required ??
+            (response as any)?.mfaRequired ??
+            (response as any)?.mfa_required
+          );
           const user = (response as any)?.data?.user;
           const role = (response as any)?.data?.user?.role ?? (response as any)?.data?.role;
           const mfaEnabled = (response as any)?.data?.user?.mfaEnabled ?? (response as any)?.data?.mfaEnabled ?? false;
@@ -135,12 +146,23 @@ export class LoginComponent {
           if (isSuccess) {
             if (this.isBrowser) {
               // Store auth-independent login flags for downstream screens.
+              this.authService.clearMfaChallengeContext();
+              if (mfaRequired && mfaToken) {
+                this.authService.setMfaChallengeContext({
+                  mfaToken: String(mfaToken),
+                  email,
+                  userId: (response as any)?.data?.userId ?? (response as any)?.data?.user?.id,
+                  challengeId: (response as any)?.data?.challengeId ?? (response as any)?.data?.challenge_id
+                });
+              }
               if (mfaToken) {
                 localStorage.setItem('mfa_token', mfaToken);
               } else {
                 localStorage.removeItem('mfa_token');
               }
               localStorage.setItem('mfaEnabled', String(!!mfaEnabled));
+              localStorage.setItem('emailOtpVerified', 'false');
+              localStorage.setItem('authenticatorVerified', mfaEnabled ? 'false' : 'true');
               localStorage.setItem('loginEmail', email);
               localStorage.setItem('passwordExpired', String(!!passwordExpired));
               localStorage.removeItem('passwordChangeToken');
@@ -184,14 +206,26 @@ export class LoginComponent {
               // Token may or may not be present depending on MFA flow.
               if (token) {
                 localStorage.setItem('authToken', token);
+              } else {
+                localStorage.removeItem('authToken');
               }
               if (user) {
                 this.permissionService.setFromUser(user);
               }
             }
-            this.loading = false;
-            this.cdr.detectChanges();
-            this.router.navigate(['/dashboard']);
+            this.authService.sendLoginEmailOtp({ email }).subscribe({
+              next: (otpResponse: any) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                this.toastr.success(otpResponse?.message || 'Verification code sent to your email.');
+                this.router.navigate(['/verify-account'], { queryParams: { email } });
+              },
+              error: (otpErr: any) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                this.toastr.error(otpErr?.error?.message || 'Failed to send verification code.');
+              }
+            });
           } else {
             this.toastr.error(message);
             this.loading = false;

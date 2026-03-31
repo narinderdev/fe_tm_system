@@ -18,6 +18,11 @@ export class CompanyIdInterceptor implements HttpInterceptor {
       return next.handle(req);
     }
 
+    const url = (req.url || '').toLowerCase();
+    if (url.includes('/auth/mfa/email/send')) {
+      return next.handle(req);
+    }
+
     if (req.params.has('companyId')) {
       return next.handle(req);
     }

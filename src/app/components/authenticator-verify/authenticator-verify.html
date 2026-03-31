@@ -1,0 +1,39 @@
+<div class="otp-page">
+  <div class="otp-card">
+    <h2>Authenticator Verification</h2>
+    <p>
+      Enter the 6-digit code from your authenticator app
+      <ng-container *ngIf="challengeEmail">for <strong>{{ challengeEmail }}</strong></ng-container>.
+    </p>
+
+    <div class="otp-inputs">
+      <input
+        #otpInput
+        *ngFor="let _ of code; let i = index; trackBy: trackByIndex"
+        type="text"
+        inputmode="numeric"
+        maxlength="1"
+        autocomplete="one-time-code"
+        [value]="code[i]"
+        [disabled]="loading"
+        (input)="handleInput($event, i)"
+        (keydown)="handleKeyDown($event, i)"
+        (paste)="handlePaste($event, i)"
+      />
+    </div>
+
+    <small class="error" *ngIf="errorMessage">{{ errorMessage }}</small>
+
+    <button class="verify-btn" type="button" (click)="submit()" [disabled]="loading || !canSubmit">
+      <ng-container *ngIf="!loading; else loadingTpl">Verify Authenticator</ng-container>
+      <ng-template #loadingTpl>
+        <app-spinner></app-spinner>
+      </ng-template>
+    </button>
+
+    <p class="switch-auth">
+      Back to
+      <a routerLink="/login">Login</a>
+    </p>
+  </div>
+</div>

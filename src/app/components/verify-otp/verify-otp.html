@@ -1,33 +1,44 @@
-<div class="otp-page">
-  <div class="otp-card">
-    <h2>Verify OTP</h2>
-    <p>Enter the 6-digit code sent to <strong>{{ email }}</strong></p>
+<form class="otp-form" (ngSubmit)="submit()">
+  <div class="otp-container">
+    <div class="otp-card">
+      <h2 class="title">Verify Your Email</h2>
+      <p class="subtitle">
+        We sent a 6-digit code to
+        <span class="email" *ngIf="email; else genericEmail">{{ email }}</span
+        >. Enter it below to finish creating your account.
+      </p>
+      <ng-template #genericEmail>your inbox</ng-template>
 
-    <div class="otp-inputs" (paste)="onPaste($event)">
-      <input
-        #otpInput
-        *ngFor="let digit of otpDigits; let i = index"
-        type="text"
-        inputmode="numeric"
-        maxlength="1"
-        [value]="digit"
-        (input)="onInput(i, $event)"
-        (keydown)="onKeyDown(i, $event)"
-      />
+      <div class="otp-inputs">
+        <input
+          #otpInput
+          *ngFor="let _ of code; let i = index; trackBy: trackByIndex"
+          type="text"
+          maxlength="1"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          [value]="code[i]"
+          (input)="handleInput($event, i)"
+          (keydown)="handleKeyDown($event, i)"
+          (paste)="handlePaste($event, i)"
+        />
+      </div>
+
+      <small class="error" *ngIf="errorMessage">{{ errorMessage }}</small>
+
+      <button class="btn-verify" type="submit" [disabled]="loading">
+        <ng-container *ngIf="!loading; else loadingTpl">Verify Code</ng-container>
+        <ng-template #loadingTpl>
+          <app-spinner></app-spinner>
+        </ng-template>
+      </button>
+
+      <button class="link-button" type="button" (click)="editEmail()">Use a different email</button>
+
+      <p class="login-hint">
+        Already verified?
+        <a routerLink="/login" (mousedown)="$event.preventDefault()">Back to login</a>
+      </p>
     </div>
-
-    <button class="verify-btn" type="button" (click)="verifyOtp()" [disabled]="loading">
-      <ng-container *ngIf="!loading; else loadingTpl">Verify OTP</ng-container>
-      <ng-template #loadingTpl>
-        <app-spinner></app-spinner>
-      </ng-template>
-    </button>
-
-    <p class="switch-auth">
-      Back to
-      <a routerLink="/sign-up">Sign up</a>
-      or
-      <a routerLink="/login">Login</a>
-    </p>
   </div>
-</div>
+</form>

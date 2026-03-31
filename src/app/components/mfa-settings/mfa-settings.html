@@ -1,0 +1,54 @@
+<div class="mfa-page" [class.embedded]="embedded">
+  <div class="mfa-content">
+    <ng-container *ngIf="!embedded">
+      <h1>Multi-Factor Authentication</h1>
+      <p class="subtitle">Secure your account with an authenticator app</p>
+    </ng-container>
+
+    <div class="mfa-card" *ngIf="!mfaEnabled">
+      <p class="step-title">STEP 1: SCAN QR CODE TO SETUP</p>
+
+      <div class="qr-card">
+        <ng-container *ngIf="!loadingSetup; else qrLoadingTpl">
+          <img *ngIf="qrCodeImage" [src]="qrCodeImage" alt="MFA QR Code" class="qr-image" />
+        </ng-container>
+        <ng-template #qrLoadingTpl>
+          <app-spinner></app-spinner>
+        </ng-template>
+      </div>
+
+      <code *ngIf="secret" class="secret">{{ secret }}</code>
+
+      <p class="step-title">STEP 2: ENTER OTP TO VERIFY</p>
+      <app-otp-code-input
+        class="otp-field-group"
+        [length]="otpLength"
+        [value]="otpCode"
+        [autoFocus]="true"
+        [size]="embedded ? 'compact' : 'default'"
+        [disabled]="loadingSetup || verifyingSetup"
+        groupAriaLabel="MFA verification code"
+        inputAriaLabelPrefix="MFA OTP digit"
+        (valueChange)="onOtpValueChange($event)"
+      ></app-otp-code-input>
+
+      <button
+        class="primary-btn full-btn"
+        type="button"
+        (click)="verifyMfaSetup()"
+        [disabled]="verifyingSetup || loadingSetup || otpCode.length !== otpLength"
+      >
+        <ng-container *ngIf="!verifyingSetup; else verifyLoadingTpl">Submit OTP</ng-container>
+        <ng-template #verifyLoadingTpl>
+          <app-spinner></app-spinner>
+        </ng-template>
+      </button>
+    </div>
+
+    <div class="mfa-card enabled-card" *ngIf="mfaEnabled">
+      <h3>MFA Enabled</h3>
+      <p class="enabled-note">Your account is currently protected with an authenticator app.</p>
+      <button *ngIf="!embedded" class="secondary-btn" type="button" (click)="goToDashboard()">Back to Dashboard</button>
+    </div>
+  </div>
+</div>

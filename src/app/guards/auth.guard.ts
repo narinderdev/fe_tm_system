@@ -24,6 +24,18 @@ export class AuthGuard implements CanActivate, CanActivateChild {
     return this.router.parseUrl('/login');
   }
 
+  private redirectToVerifyAccount(): UrlTree {
+    const email = this.isBrowser ? String(localStorage.getItem('loginEmail') ?? '').trim().toLowerCase() : '';
+    if (email) {
+      return this.router.createUrlTree(['/verify-account'], { queryParams: { email } });
+    }
+    return this.router.parseUrl('/verify-account');
+  }
+
+  private redirectToVerifyAuthenticator(): UrlTree {
+    return this.router.parseUrl('/authenticator-verify');
+  }
+
   private canAccessExpiredPasswordFlow(url: string): boolean {
     if (!this.isBrowser) {
       return true;
@@ -55,6 +67,18 @@ export class AuthGuard implements CanActivate, CanActivateChild {
       return true;
     }
     if (this.isLoggedIn()) {
+      const emailOtpVerified = localStorage.getItem('emailOtpVerified') === 'true';
+      const mfaEnabled = localStorage.getItem('mfaEnabled') === 'true';
+      const authenticatorVerified = localStorage.getItem('authenticatorVerified') === 'true';
+
+      if (!emailOtpVerified) {
+        return this.redirectToVerifyAccount();
+      }
+
+      if (mfaEnabled && !authenticatorVerified) {
+        return this.redirectToVerifyAuthenticator();
+      }
+
       return true;
     }
     if (this.canAccessExpiredPasswordFlow(state.url)) {

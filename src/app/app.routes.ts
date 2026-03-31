@@ -3,7 +3,11 @@ import { AuthGuard } from './guards/auth.guard';
 import { LoginComponent } from './components/login/login';
 import { SignUpComponent } from './components/sign-up/sign-up';
 import { VerifyOtpComponent } from './components/verify-otp/verify-otp';
+import { VerifyAccountComponent } from './components/verify-account/verify-account';
+import { VerifyAuthenticatorComponent } from './components/verify-authenticator/verify-authenticator';
+import { AuthenticatorVerifyComponent } from './components/authenticator-verify/authenticator-verify';
 import { TmSystemComponent } from './components/tm-system/tm-system';
+import { MfaChallengeGuard } from './guards/mfa-challenge.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -15,6 +19,10 @@ export const routes: Routes = [
       import('./components/set-password/set-password').then((m) => m.SetPasswordComponent)
   },
   { path: 'verify-otp', component: VerifyOtpComponent },
+  { path: 'verify-account', component: VerifyAccountComponent },
+  { path: 'authenticator-verify', component: AuthenticatorVerifyComponent, canActivate: [MfaChallengeGuard] },
+  { path: 'verify-authenticator', component: VerifyAuthenticatorComponent },
+  { path: 'settings/mfa', pathMatch: 'full', redirectTo: 'tm-system/mfa' },
   { path: 'dashboard', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
   { path: 'tm-system', pathMatch: 'full', redirectTo: 'tm-system/dashboard' },
   {

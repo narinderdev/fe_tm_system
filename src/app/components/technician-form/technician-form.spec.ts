@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TechnicianService } from '../../services/technician.service';
+import { UserManagementService } from '../../services/user-management.service';
 import { TechnicianFormComponent } from './technician-form';
 
 describe('TechnicianFormComponent', () => {
@@ -36,6 +37,10 @@ describe('TechnicianFormComponent', () => {
     warning: vi.fn()
   };
 
+  const userManagementServiceMock = {
+    inviteUser: vi.fn().mockReturnValue(of({ statusCode: 201 }))
+  };
+
   let navigateSpy: ReturnType<typeof vi.spyOn>;
 
   async function configureRoute(pathId?: string) {
@@ -44,6 +49,7 @@ describe('TechnicianFormComponent', () => {
       providers: [
         provideRouter([]),
         { provide: TechnicianService, useValue: technicianServiceMock },
+        { provide: UserManagementService, useValue: userManagementServiceMock },
         { provide: ToastrService, useValue: toastrMock },
         {
           provide: ActivatedRoute,
@@ -61,6 +67,7 @@ describe('TechnicianFormComponent', () => {
   beforeEach(() => {
     technicianServiceMock.createTechnician.mockClear();
     technicianServiceMock.updateTechnician.mockClear();
+    userManagementServiceMock.inviteUser.mockClear();
     toastrMock.success.mockClear();
     toastrMock.error.mockClear();
   });
@@ -87,14 +94,19 @@ describe('TechnicianFormComponent', () => {
       firstName: 'John',
       lastName: 'Smith',
       technicianType: 'TECHNICIAN',
-      teamId: 1,
+      email: 'john.smith@example.com',
       address: 'Site A',
       status: 'AVAILABLE'
     });
     component.submit();
 
     expect(technicianServiceMock.createTechnician).toHaveBeenCalled();
-    expect(toastrMock.success).toHaveBeenCalledWith('Technician created successfully.');
+    expect(userManagementServiceMock.inviteUser).toHaveBeenCalledWith({
+      firstName: 'John',
+      lastName: 'Smith',
+      email: 'john.smith@example.com'
+    });
+    expect(toastrMock.success).toHaveBeenCalledWith('Technician invited successfully.');
     expect(navigateSpy).toHaveBeenCalledWith(['/tm-system', 'technicians']);
   });
 
@@ -129,7 +141,7 @@ describe('TechnicianFormComponent', () => {
       firstName: 'John',
       lastName: 'Smith',
       technicianType: 'TECHNICIAN',
-      teamId: 1,
+      email: 'john.smith@example.com',
       address: 'Site A',
       status: 'AVAILABLE'
     });

@@ -22,17 +22,21 @@ export class AuthTokenInterceptor implements HttpInterceptor {
     }
 
     const url = (req.url || '').toLowerCase();
-    const isAuthEndpoint =
-      url.includes('/auth/signup/verify') ||
+    const isPublicAuthEndpoint =
       url.endsWith('/auth') ||
       url.includes('/auth/signup') ||
+      url.includes('/auth/signup/verify') ||
+      url.includes('/auth/verify-account') ||
       url.includes('/auth/mfa/email/send') ||
-      url.includes('/auth/mfa/email/verify');
+      url.includes('/auth/mfa/email/verify') ||
+      url.includes('/auth/login/mfa') ||
+      url.includes('/auth/forgot-password') ||
+      url.includes('/users/forgot-password');
     const isChangePasswordEndpoint = url.includes('/users/change-password');
     const isSetPasswordEndpoint =
       url.includes('/users/set-password') || url.includes('/api/invitations/set-password');
 
-    if (isAuthEndpoint || isSetPasswordEndpoint) {
+    if (isPublicAuthEndpoint || isSetPasswordEndpoint) {
       return next.handle(req);
     }
 
@@ -53,6 +57,11 @@ export class AuthTokenInterceptor implements HttpInterceptor {
         if (this.isBrowser && error?.status === 403) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('passwordChangeToken');
+          localStorage.removeItem('mfa_token');
+          localStorage.removeItem('emailOtpVerified');
+          localStorage.removeItem('authenticatorVerified');
+          localStorage.removeItem('mfaEnabled');
+          localStorage.removeItem('loginEmail');
           this.router.navigate(['/login']);
         }
         return throwError(() => error);

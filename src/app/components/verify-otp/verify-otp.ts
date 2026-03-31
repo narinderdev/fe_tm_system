@@ -1,110 +1,182 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, ElementRef, Inject, PLATFORM_ID, QueryList, ViewChildren } from '@angular/core';
+import { Component, ElementRef, QueryList, ViewChildren, OnInit, Inject, PLATFORM_ID } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { finalize, take } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
-import { AuthService } from '../../services/auth.service';
+
+import { SignupService } from '../../services/signup-service';
 import { SpinnerComponent } from '../spinner/spinner';
 
 @Component({
   selector: 'app-verify-otp',
   standalone: true,
-  imports: [CommonModule, RouterModule, SpinnerComponent],
+  imports: [CommonModule, FormsModule, SpinnerComponent, RouterModule],
   templateUrl: './verify-otp.html',
   styleUrls: ['./verify-otp.css']
 })
-export class VerifyOtpComponent {
-  @ViewChildren('otpInput') otpInputs!: QueryList<ElementRef<HTMLInputElement>>;
-
-  readonly otpDigits = ['', '', '', '', '', ''];
+export class VerifyOtpComponent implements OnInit {
+  code: string[] = Array(6).fill('');
   loading = false;
   email = '';
+  errorMessage = '';
+  private isBrowser = false;
+  private autoSubmitTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private readonly isBrowser: boolean;
+  @ViewChildren('otpInput') inputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   constructor(
-    private readonly route: ActivatedRoute,
-    private readonly router: Router,
-    private readonly authService: AuthService,
-    private readonly toastr: ToastrService,
+    private route: ActivatedRoute,
+    private router: Router,
+    private signupService: SignupService,
+    private toastr: ToastrService,
     @Inject(PLATFORM_ID) platformId: object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
-    this.initializeEmail();
   }
 
-  private initializeEmail(): void {
-    const queryEmail = String(this.route.snapshot.queryParamMap.get('email') ?? '').trim().toLowerCase();
+  ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      const emailParam = params['email'];
 
-    if (queryEmail) {
-      this.email = queryEmail;
-      return;
+      if (emailParam) {
+        this.email = emailParam;
+        if (this.isBrowser) {
+          localStorage.setItem('signupEmail', emailParam);
+        }
+      } else {
+        if (this.isBrowser) {
+          const storedEmail = localStorage.getItem('signupEmail');
+          const signupUserId = localStorage.getItem('signupUserId');
+          if (storedEmail && signupUserId) {
+            this.email = storedEmail;
+          } else {
+            this.toastr.warning('Please complete signup first');
+            this.router.navigate(['/sign-up']);
+          }
+        }
+      }
+    });
+  }
+
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  handleInput(event: Event, index: number) {
+    const input = event.target as HTMLInputElement;
+    const digit = (input.value || '').replace(/\D/g, '').slice(-1);
+
+    this.code[index] = digit;
+    input.value = digit;
+
+    if (digit) {
+      if (index < this.code.length - 1) {
+        this.focusInput(index + 1);
+      } else {
+        this.checkAndAutoSubmit();
+      }
+    } else {
+      input.value = '';
     }
 
-    if (this.isBrowser) {
-      const signupUserId = localStorage.getItem('signupUserId');
-      const fallbackEmail = String(localStorage.getItem('signupEmail') ?? '').trim().toLowerCase();
-      if (signupUserId && fallbackEmail) {
-        this.email = fallbackEmail;
-        return;
+    this.errorMessage = '';
+  }
+
+  handleKeyDown(event: KeyboardEvent, index: number) {
+    const input = event.target as HTMLInputElement;
+
+    if (event.key === 'Backspace') {
+      if (!this.code[index] && index > 0) {
+        this.code[index - 1] = '';
+        const prevInput = this.inputs.get(index - 1);
+        if (prevInput) {
+          prevInput.nativeElement.value = '';
+        }
+        this.focusInput(index - 1);
+      } else {
+        this.code[index] = '';
+        input.value = '';
+      }
+    }
+  }
+
+  handlePaste(event: ClipboardEvent, index: number) {
+    event.preventDefault();
+    const pastedData = event.clipboardData?.getData('text').replace(/\D/g, '') || '';
+
+    for (let i = 0; i < pastedData.length && index + i < this.code.length; i++) {
+      this.code[index + i] = pastedData[i];
+      const input = this.inputs.get(index + i);
+      if (input) {
+        input.nativeElement.value = pastedData[i];
       }
     }
 
-    this.toastr.warning('Please sign up first to verify OTP.');
-    this.router.navigate(['/sign-up']);
+    const nextIndex = Math.min(index + pastedData.length, this.code.length - 1);
+    this.focusInput(nextIndex);
+    this.errorMessage = '';
+
+    this.checkAndAutoSubmit();
   }
 
-  onInput(index: number, event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const digit = (input.value || '').replace(/\D/g, '').slice(-1);
-    this.otpDigits[index] = digit;
-    input.value = digit;
-
-    if (digit && index < this.otpDigits.length - 1) {
-      this.focusInput(index + 1);
-    }
-
-    this.tryAutoSubmit();
-  }
-
-  onKeyDown(index: number, event: KeyboardEvent): void {
-    if (event.key === 'Backspace' && !this.otpDigits[index] && index > 0) {
-      this.focusInput(index - 1);
-    }
-  }
-
-  onPaste(event: ClipboardEvent): void {
-    event.preventDefault();
-    const text = event.clipboardData?.getData('text') ?? '';
-    const digits = text.replace(/\D/g, '').slice(0, 6).split('');
-
-    digits.forEach((digit, index) => {
-      this.otpDigits[index] = digit;
-    });
-
-    for (let i = digits.length; i < this.otpDigits.length; i++) {
-      this.otpDigits[i] = '';
-    }
-
-    const targetIndex = Math.min(digits.length, this.otpDigits.length - 1);
-    this.focusInput(targetIndex);
-    this.tryAutoSubmit();
-  }
-
-  verifyOtp(): void {
-    if (this.loading || !this.email) {
+  checkAndAutoSubmit() {
+    const allFilled = this.code.every(digit => digit !== '');
+    if (!allFilled) {
       return;
     }
 
-    const otp = this.otpDigits.join('');
-    if (!/^\d{6}$/.test(otp)) {
-      this.toastr.error('Please enter a valid 6-digit OTP.');
+    if (this.autoSubmitTimer) {
+      clearTimeout(this.autoSubmitTimer);
+    }
+
+    this.autoSubmitTimer = setTimeout(() => {
+      this.submit();
+      this.autoSubmitTimer = null;
+    }, 300);
+  }
+
+  clearAutoSubmitTimer() {
+    if (this.autoSubmitTimer) {
+      clearTimeout(this.autoSubmitTimer);
+      this.autoSubmitTimer = null;
+    }
+  }
+
+  focusInput(index: number) {
+    const input = this.inputs.get(index);
+    input?.nativeElement.focus();
+    input?.nativeElement.select();
+  }
+
+  submit() {
+    this.clearAutoSubmitTimer();
+
+    if (this.loading) {
       return;
     }
+
+    const otp = this.code.join('');
+    if (otp.length !== 6) {
+      this.errorMessage = 'Enter the 6-digit code we sent.';
+      return;
+    }
+
+    if (!this.email) {
+      this.errorMessage = 'Email is missing. Please go back to signup.';
+      this.toastr.error('Email is missing');
+      return;
+    }
+
+    const payload = {
+      email: this.email,
+      otp
+    };
 
     this.loading = true;
-    this.authService
-      .verifySignup({ email: this.email, otp })
+
+    this.signupService
+      .verifyOtp(payload)
       .pipe(
         take(1),
         finalize(() => {
@@ -112,37 +184,32 @@ export class VerifyOtpComponent {
         })
       )
       .subscribe({
-        next: (response: any) => {
+        next: response => {
           const statusCode = response?.statusCode;
-          if (statusCode === 200 || statusCode === 201) {
-            this.toastr.success(response?.message || 'Account verified successfully.');
+          const isSuccess = statusCode === 200 || statusCode === 201;
+          const message = response?.message || (isSuccess ? 'OTP verified successfully.' : 'Invalid code.');
+
+          if (isSuccess) {
+            this.toastr.success(message);
             if (this.isBrowser) {
               localStorage.removeItem('signupUserId');
               localStorage.removeItem('signupEmail');
             }
             this.router.navigate(['/login']);
-            return;
+          } else {
+            this.errorMessage = message;
+            this.toastr.error(message);
           }
-          this.toastr.error(response?.message || 'OTP verification failed.');
         },
-        error: (err) => {
-          this.toastr.error(err?.error?.message || 'OTP verification failed.');
+        error: error => {
+          const message = error?.error?.message || 'Invalid code. Please try again.';
+          this.errorMessage = message;
+          this.toastr.error(message);
         }
       });
   }
 
-  private tryAutoSubmit(): void {
-    if (this.otpDigits.every((digit) => /^\d$/.test(digit))) {
-      this.verifyOtp();
-    }
-  }
-
-  private focusInput(index: number): void {
-    const items = this.otpInputs?.toArray() ?? [];
-    if (!items[index]) {
-      return;
-    }
-    items[index].nativeElement.focus();
-    items[index].nativeElement.select();
+  editEmail() {
+    this.router.navigate(['/sign-up']);
   }
 }
