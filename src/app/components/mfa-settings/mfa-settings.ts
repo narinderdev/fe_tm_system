@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, Input, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, Input, PLATFORM_ID } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { finalize, take } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
@@ -20,8 +20,10 @@ export class MfaSettingsComponent {
   mfaEnabled = false;
   loadingSetup = false;
   verifyingSetup = false;
+  disablingMfa = false;
   readonly otpLength = 6;
   otpCode = '';
+  disableOtpCode = '';
 
   secret = '';
   qrCodeImage = '';
@@ -32,6 +34,7 @@ export class MfaSettingsComponent {
     private readonly authService: AuthService,
     private readonly toastr: ToastrService,
     private readonly router: Router,
+    private readonly cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -52,6 +55,7 @@ export class MfaSettingsComponent {
         take(1),
         finalize(() => {
           this.loadingSetup = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
@@ -60,15 +64,21 @@ export class MfaSettingsComponent {
           this.qrCodeImage = String(response?.data?.qrCodeImage ?? '').trim();
           this.otpCode = '';
           this.toastr.success(response?.message || 'Scan QR and enter OTP to enable MFA.');
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.toastr.error(err?.error?.message || 'Failed to initialize MFA setup.');
+          this.cdr.detectChanges();
         }
       });
   }
 
   onOtpValueChange(code: string): void {
     this.otpCode = code;
+  }
+
+  onDisableOtpValueChange(code: string): void {
+    this.disableOtpCode = code;
   }
 
   verifyMfaSetup(): void {
@@ -88,6 +98,7 @@ export class MfaSettingsComponent {
         take(1),
         finalize(() => {
           this.verifyingSetup = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
@@ -101,9 +112,58 @@ export class MfaSettingsComponent {
             localStorage.setItem('authenticatorVerified', 'true');
           }
           this.toastr.success(response?.message || 'MFA enabled successfully.');
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.toastr.error(err?.error?.message || 'Failed to verify MFA setup.');
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  disableMfa(): void {
+    const code = this.disableOtpCode;
+    if (!new RegExp(`^\\d{${this.otpLength}}$`).test(code)) {
+      this.toastr.error('Enter a valid 6-digit code to disable MFA.');
+      return;
+    }
+    if (this.disablingMfa) {
+      return;
+    }
+
+    this.disablingMfa = true;
+    this.authService
+      .disableMfa(code)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.disablingMfa = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.mfaEnabled = false;
+          this.disableOtpCode = '';
+          this.otpCode = '';
+          if (this.isBrowser) {
+            localStorage.setItem('mfaEnabled', 'false');
+            localStorage.setItem('authenticatorVerified', 'true');
+            localStorage.removeItem('mfa_token');
+          }
+          this.toastr.success(response?.message || 'MFA disabled successfully.');
+          this.cdr.detectChanges();
+          if (this.isBrowser) {
+            setTimeout(() => {
+              window.location.reload();
+            }, 200);
+          } else {
+            this.openMfaSetup();
+          }
+        },
+        error: (err) => {
+          this.toastr.error(err?.error?.message || 'Failed to disable MFA.');
+          this.cdr.detectChanges();
         }
       });
   }

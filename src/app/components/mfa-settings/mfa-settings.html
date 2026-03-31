@@ -48,6 +48,32 @@
     <div class="mfa-card enabled-card" *ngIf="mfaEnabled">
       <h3>MFA Enabled</h3>
       <p class="enabled-note">Your account is currently protected with an authenticator app.</p>
+      <p class="disable-step-title">ENTER 6-DIGIT CODE TO DISABLE</p>
+
+      <app-otp-code-input
+        class="otp-field-group disable-otp-group"
+        [length]="otpLength"
+        [value]="disableOtpCode"
+        [autoFocus]="false"
+        [size]="embedded ? 'compact' : 'default'"
+        [disabled]="disablingMfa"
+        groupAriaLabel="Disable MFA verification code"
+        inputAriaLabelPrefix="Disable MFA OTP digit"
+        (valueChange)="onDisableOtpValueChange($event)"
+      ></app-otp-code-input>
+
+      <button
+        class="danger-btn full-btn"
+        type="button"
+        (click)="disableMfa()"
+        [disabled]="disablingMfa || disableOtpCode.length !== otpLength"
+      >
+        <ng-container *ngIf="!disablingMfa; else disableLoadingTpl">Submit OTP</ng-container>
+        <ng-template #disableLoadingTpl>
+          <app-spinner></app-spinner>
+        </ng-template>
+      </button>
+
       <button *ngIf="!embedded" class="secondary-btn" type="button" (click)="goToDashboard()">Back to Dashboard</button>
     </div>
   </div>

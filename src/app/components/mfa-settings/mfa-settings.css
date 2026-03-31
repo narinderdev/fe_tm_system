@@ -177,8 +177,31 @@
   color: #64748b;
 }
 
+.disable-step-title {
+  margin: 18px 0 14px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #0f172a;
+}
+
+.disable-otp-group {
+  margin-bottom: 16px;
+}
+
+.danger-btn {
+  background: #ffffff;
+  color: #dc2626;
+  border: 2px solid #ef4444;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
 .primary-btn:disabled,
-.secondary-btn:disabled {
+.secondary-btn:disabled,
+.danger-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
