@@ -92,7 +92,7 @@
               style="border: none; background: transparent; color: #2452a6; font-size: 16px; font-weight: 500; min-height: 36px; max-width: 280px; outline: none; cursor: pointer;"
             >
               <option *ngFor="let company of companyOptions; let i = index" [ngValue]="i">
-                {{ company.company_trade_name }} - {{ company.company_number }}
+                {{ company.company_legal_name || company.company_trade_name }} - {{ company.company_number }}
               </option>
             </select>
           </ng-container>

@@ -327,13 +327,15 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
   }
 
   private loadSelectedCompanyLabel(): void {
+    const legalName = String(localStorage.getItem('selectedCompanyLegalName') ?? '').trim();
     const tradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
+    const companyName = legalName || tradeName;
     const companyNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
-    if (!tradeName && !companyNumber) {
+    if (!companyName && !companyNumber) {
       this.selectedCompanyLabel = '';
       return;
     }
-    this.selectedCompanyLabel = `${tradeName}${tradeName && companyNumber ? ' - ' : ''}${companyNumber}`;
+    this.selectedCompanyLabel = `${companyName}${companyName && companyNumber ? ' - ' : ''}${companyNumber}`;
   }
 
   private toPayload(): CreateTechnicianPayload {

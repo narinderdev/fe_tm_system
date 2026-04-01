@@ -54,6 +54,7 @@ export class CompanyIdInterceptor implements HttpInterceptor {
 
     // Backward-compatibility for sessions created before selectedCompanyId existed.
     const selectedNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
+    const selectedLegalName = String(localStorage.getItem('selectedCompanyLegalName') ?? '').trim();
     const selectedTradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
     const rawCompanies = String(localStorage.getItem('userCompanies') ?? '').trim();
     if (!rawCompanies) {
@@ -68,7 +69,10 @@ export class CompanyIdInterceptor implements HttpInterceptor {
 
       const matched = parsed.find((company: any) =>
         String(company?.company_number ?? '').trim() === selectedNumber
-        && String(company?.company_trade_name ?? '').trim() === selectedTradeName
+        && (
+          (!!selectedLegalName && String(company?.company_legal_name ?? '').trim() === selectedLegalName)
+          || String(company?.company_trade_name ?? '').trim() === selectedTradeName
+        )
       );
       const matchedId = String(matched?.id ?? '').trim();
       if (!matchedId) {

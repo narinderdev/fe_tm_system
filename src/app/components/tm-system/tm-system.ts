@@ -154,6 +154,7 @@ interface StoredCompany {
   id?: number | string | null;
   company_number: string;
   company_trade_name: string;
+  company_legal_name: string;
 }
 
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
@@ -3941,6 +3942,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     localStorage.removeItem('selectedCompanyId');
     localStorage.removeItem('selectedCompanyNumber');
     localStorage.removeItem('selectedCompanyTradeName');
+    localStorage.removeItem('selectedCompanyLegalName');
     this.router.navigate(['/login']);
   }
 
@@ -4032,9 +4034,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
             .map((company: any) => ({
               id: company?.id ?? null,
               company_number: String(company?.company_number ?? '').trim(),
-              company_trade_name: String(company?.company_trade_name ?? '').trim()
+              company_trade_name: String(company?.company_trade_name ?? '').trim(),
+              company_legal_name: String(company?.company_legal_name ?? '').trim()
             }))
-            .filter((company: StoredCompany) => company.company_number && company.company_trade_name)
+            .filter((company: StoredCompany) =>
+              company.company_number && (company.company_legal_name || company.company_trade_name)
+            )
         : [];
 
       this.companyOptions = companies;
@@ -4044,14 +4049,22 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         return;
       }
 
+      const selectedCompanyId = String(localStorage.getItem('selectedCompanyId') ?? '').trim();
       const selectedCompanyNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
       const selectedCompanyTradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
-      const selectedIndex = this.companyOptions.findIndex((company) =>
+      const selectedCompanyLegalName = String(localStorage.getItem('selectedCompanyLegalName') ?? '').trim();
+      const selectedIndexById = this.companyOptions.findIndex((company) =>
+        String(company?.id ?? '').trim() === selectedCompanyId
+      );
+      const selectedIndexByName = this.companyOptions.findIndex((company) =>
         company.company_number === selectedCompanyNumber
-        && company.company_trade_name === selectedCompanyTradeName
+        && (
+          (!!selectedCompanyLegalName && company.company_legal_name === selectedCompanyLegalName)
+          || company.company_trade_name === selectedCompanyTradeName
+        )
       );
 
-      this.selectedCompanyIndex = selectedIndex >= 0 ? selectedIndex : 0;
+      this.selectedCompanyIndex = selectedIndexById >= 0 ? selectedIndexById : (selectedIndexByName >= 0 ? selectedIndexByName : 0);
       this.persistSelectedCompany();
     } catch {
       this.companyOptions = [];
@@ -4081,6 +4094,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       localStorage.removeItem('selectedCompanyId');
       localStorage.removeItem('selectedCompanyNumber');
       localStorage.removeItem('selectedCompanyTradeName');
+      localStorage.removeItem('selectedCompanyLegalName');
       return;
     }
 
@@ -4091,6 +4105,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     }
     localStorage.setItem('selectedCompanyNumber', selected.company_number);
     localStorage.setItem('selectedCompanyTradeName', selected.company_trade_name);
+    localStorage.setItem('selectedCompanyLegalName', selected.company_legal_name || selected.company_trade_name);
   }
 
   get showCompanyDropdown(): boolean {
@@ -4103,7 +4118,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    return `${selected.company_trade_name} - ${selected.company_number}`;
+    const companyName = selected.company_legal_name || selected.company_trade_name;
+    return `${companyName} - ${selected.company_number}`;
   }
 
   private reloadActiveTabForCompanyChange(): void {

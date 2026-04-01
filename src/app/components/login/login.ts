@@ -138,9 +138,10 @@ export class LoginComponent {
                 .map((company: any) => ({
                   id: company?.id ?? null,
                   company_number: String(company?.company_number ?? '').trim(),
-                  company_trade_name: String(company?.company_trade_name ?? '').trim()
+                  company_trade_name: String(company?.company_trade_name ?? '').trim(),
+                  company_legal_name: String(company?.company_legal_name ?? '').trim()
                 }))
-                .filter((company: any) => company.company_number && company.company_trade_name)
+                .filter((company: any) => company.company_number && (company.company_legal_name || company.company_trade_name))
             : [];
 
           if (isSuccess) {
@@ -183,11 +184,19 @@ export class LoginComponent {
               }
 
               if (companies.length) {
+                const existingId = String(localStorage.getItem('selectedCompanyId') ?? '').trim();
                 const existingNumber = String(localStorage.getItem('selectedCompanyNumber') ?? '').trim();
                 const existingTradeName = String(localStorage.getItem('selectedCompanyTradeName') ?? '').trim();
-                const matchedCompany = companies.find((company: any) =>
-                  company.company_number === existingNumber && company.company_trade_name === existingTradeName
-                ) ?? companies[0];
+                const existingLegalName = String(localStorage.getItem('selectedCompanyLegalName') ?? '').trim();
+                const matchedCompany = companies.find((company: any) => String(company?.id ?? '').trim() === existingId)
+                  ?? companies.find((company: any) =>
+                    company.company_number === existingNumber
+                    && (
+                      (!!existingLegalName && company.company_legal_name === existingLegalName)
+                      || company.company_trade_name === existingTradeName
+                    )
+                  )
+                  ?? companies[0];
                 localStorage.setItem('userCompanies', JSON.stringify(companies));
                 if (matchedCompany.id !== null && matchedCompany.id !== undefined) {
                   localStorage.setItem('selectedCompanyId', String(matchedCompany.id));
@@ -196,11 +205,16 @@ export class LoginComponent {
                 }
                 localStorage.setItem('selectedCompanyNumber', matchedCompany.company_number);
                 localStorage.setItem('selectedCompanyTradeName', matchedCompany.company_trade_name);
+                localStorage.setItem(
+                  'selectedCompanyLegalName',
+                  String(matchedCompany.company_legal_name || matchedCompany.company_trade_name)
+                );
               } else {
                 localStorage.removeItem('userCompanies');
                 localStorage.removeItem('selectedCompanyId');
                 localStorage.removeItem('selectedCompanyNumber');
                 localStorage.removeItem('selectedCompanyTradeName');
+                localStorage.removeItem('selectedCompanyLegalName');
               }
 
               // Token may or may not be present depending on MFA flow.
