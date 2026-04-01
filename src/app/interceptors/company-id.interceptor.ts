@@ -19,7 +19,8 @@ export class CompanyIdInterceptor implements HttpInterceptor {
     }
 
     const url = (req.url || '').toLowerCase();
-    if (url.includes('/auth')) {
+    const isBaseAuthEndpoint = /\/auth(?:\?|#|$)/.test(url);
+    if (isBaseAuthEndpoint) {
       return next.handle(req);
     }
 
@@ -78,12 +79,19 @@ export class CompanyIdInterceptor implements HttpInterceptor {
         )
       );
       const matchedId = String(matched?.id ?? '').trim();
-      if (!matchedId) {
+      if (matchedId) {
+        localStorage.setItem('selectedCompanyId', matchedId);
+        return matchedId;
+      }
+
+      const fallback = parsed.find((company: any) => String(company?.id ?? '').trim());
+      const fallbackId = String(fallback?.id ?? '').trim();
+      if (!fallbackId) {
         return '';
       }
 
-      localStorage.setItem('selectedCompanyId', matchedId);
-      return matchedId;
+      localStorage.setItem('selectedCompanyId', fallbackId);
+      return fallbackId;
     } catch {
       return '';
     }
