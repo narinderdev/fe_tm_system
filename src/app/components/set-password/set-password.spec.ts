@@ -52,7 +52,7 @@ describe('SetPasswordComponent', () => {
     return fixture.componentInstance;
   }
 
-  it('handles missing email query param', async () => {
+  it('allows missing token without showing invalid-link error', async () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [SetPasswordComponent],
@@ -64,7 +64,7 @@ describe('SetPasswordComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              queryParamMap: convertToParamMap({})
+              queryParamMap: convertToParamMap({ email: 'invite@example.com' })
             }
           }
         }
@@ -75,8 +75,8 @@ describe('SetPasswordComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    expect(component.globalError).toBe('Invalid link. Required email/token parameters are missing.');
-    expect(component.disableSubmit).toBe(true);
+    expect(component.globalError).toBe('');
+    expect(component.disableSubmit).toBe(false);
   });
 
   it('shows password mismatch validation', () => {

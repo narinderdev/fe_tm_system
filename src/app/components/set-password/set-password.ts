@@ -51,9 +51,6 @@ export class SetPasswordComponent {
 
     this.email = String(this.route.snapshot.queryParamMap.get('email') ?? '').trim().toLowerCase();
     this.invitationToken = String(this.route.snapshot.queryParamMap.get('token') ?? '').trim();
-    if (!this.email || !this.invitationToken) {
-      this.globalError = 'Invalid link. Required email/token parameters are missing.';
-    }
   }
 
   togglePasswordVisibility(): void {
@@ -102,7 +99,7 @@ export class SetPasswordComponent {
   }
 
   get disableSubmit(): boolean {
-    return this.loading || !this.email || !this.invitationToken;
+    return this.loading || !this.email;
   }
 
   submit(): void {
