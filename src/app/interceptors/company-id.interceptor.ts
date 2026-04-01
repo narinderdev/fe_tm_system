@@ -19,7 +19,7 @@ export class CompanyIdInterceptor implements HttpInterceptor {
     }
 
     const url = (req.url || '').toLowerCase();
-    if (url.includes('/auth/mfa/email/send')) {
+    if (url.includes('/auth')) {
       return next.handle(req);
     }
 
@@ -68,10 +68,13 @@ export class CompanyIdInterceptor implements HttpInterceptor {
       }
 
       const matched = parsed.find((company: any) =>
-        String(company?.company_number ?? '').trim() === selectedNumber
+        String(company?.company_number ?? company?.companyNumber ?? '').trim() === selectedNumber
         && (
-          (!!selectedLegalName && String(company?.company_legal_name ?? '').trim() === selectedLegalName)
-          || String(company?.company_trade_name ?? '').trim() === selectedTradeName
+          (!!selectedLegalName
+            && String(
+              company?.company_legal_name ?? company?.companyLegalName ?? company?.company_legalName ?? company?.legal_name ?? ''
+            ).trim() === selectedLegalName)
+          || String(company?.company_trade_name ?? company?.companyTradeName ?? company?.trade_name ?? '').trim() === selectedTradeName
         )
       );
       const matchedId = String(matched?.id ?? '').trim();

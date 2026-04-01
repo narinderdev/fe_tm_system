@@ -137,9 +137,13 @@ export class LoginComponent {
             ? companiesRaw
                 .map((company: any) => ({
                   id: company?.id ?? null,
-                  company_number: String(company?.company_number ?? '').trim(),
-                  company_trade_name: String(company?.company_trade_name ?? '').trim(),
-                  company_legal_name: String(company?.company_legal_name ?? '').trim()
+                  company_number: String(company?.company_number ?? company?.companyNumber ?? '').trim(),
+                  company_trade_name: String(
+                    company?.company_trade_name ?? company?.companyTradeName ?? company?.trade_name ?? ''
+                  ).trim(),
+                  company_legal_name: String(
+                    company?.company_legal_name ?? company?.companyLegalName ?? company?.company_legalName ?? company?.legal_name ?? ''
+                  ).trim()
                 }))
                 .filter((company: any) => company.company_number && (company.company_legal_name || company.company_trade_name))
             : [];
