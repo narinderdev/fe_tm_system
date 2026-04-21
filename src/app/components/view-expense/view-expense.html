@@ -1,0 +1,87 @@
+<div class="ve-page">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="ve-header">
+    <button class="back-link" type="button" (click)="goBack()">
+      <span class="back-icon" aria-hidden="true">&#8592;</span>
+      <span>Back to Expenses</span>
+    </button>
+    <div class="id-chip" *ngIf="expense?.id">EXP #{{ expense?.id }}</div>
+    <button
+      class="approve-btn"
+      type="button"
+      *ngIf="isPendingStatus()"
+      [disabled]="approving"
+      (click)="openApproveDialog()"
+    >
+      {{ approving ? 'Approving...' : 'Approve' }}
+    </button>
+  </div>
+
+  <ng-container *ngIf="!error && expense">
+    <section class="hero-card">
+      <div class="hero-main">
+        <h1 class="ve-title">Expense Details</h1>
+        <p class="ve-subtitle">{{ displayValue(expense.description) }}</p>
+      </div>
+    </section>
+
+    <section class="detail-card">
+      <div class="details-grid">
+        <div class="field">
+          <div class="label">Date</div>
+          <div class="value">{{ formatDate(expense.date) }}</div>
+        </div>
+        <div class="field">
+          <div class="label">Amount</div>
+          <div class="value highlight">{{ formatAmount(expense.amount) }}</div>
+        </div>
+        <div class="field">
+          <div class="label">Expense Code</div>
+          <div class="value">{{ displayValue(expense.expenseCode || expense.expense_code) }}</div>
+        </div>
+        <div class="field">
+          <div class="label">Technician</div>
+          <div class="value">{{ displayValue(expense.userName || expense.user_name) }}</div>
+        </div>
+        <div class="field">
+          <div class="label">Work Order</div>
+          <div class="value">{{ displayValue(expense.workOrderName || expense.work_order_name || expense.workOrderId || expense.work_order_id) }}</div>
+        </div>
+        <div class="field">
+          <div class="label">Tags</div>
+          <div class="value inline-pills">
+            <span class="meta-pill">{{ displayValue(expense.expenseCode || expense.expense_code) }}</span>
+            <span class="meta-pill status" [ngClass]="statusClass(expense.status)">
+              {{ displayValue(expense.status) }}
+            </span>
+          </div>
+        </div>
+        <div class="field full">
+          <div class="label">Description</div>
+          <div class="value">{{ displayValue(expense.description) }}</div>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+
+  <div class="state-card" *ngIf="successMessage">
+    {{ successMessage }}
+  </div>
+  <div class="state-card error" *ngIf="error">
+    {{ error }}
+  </div>
+
+  <div class="approve-overlay" *ngIf="showApproveDialog" (click)="closeApproveDialog()">
+    <div class="approve-dialog" role="dialog" aria-modal="true" aria-label="Approve Expense" (click)="$event.stopPropagation()">
+      <h3>Approve Expense?</h3>
+      <p>This will mark the expense as approved.</p>
+      <div class="approve-actions">
+        <button type="button" class="btn btn-secondary" (click)="closeApproveDialog()" [disabled]="approving">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="approveExpense()" [disabled]="approving">
+          {{ approving ? 'Approving...' : 'Approve' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

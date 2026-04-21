@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ChangeDetectorRef, NgZone, HostListener, 
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { finalize, Subject, takeUntil, take } from 'rxjs';
+import { finalize, Subject, takeUntil, take, forkJoin } from 'rxjs';
 import { TechnicianService, ApiTechnician } from '../../services/technician.service';
 import { WorkOrderService } from '../../services/work-order.service';
 import { DashboardService, TechnicianDashboardData } from '../../services/dashboard.service';
@@ -14,6 +14,7 @@ import { ToastrService } from 'ngx-toastr';
 import { PermissionService } from '../../services/permission.service';
 import { UserManagementService } from '../../services/user-management.service';
 import { MfaSettingsComponent } from '../mfa-settings/mfa-settings';
+import { ExpensesService, ExpenseListItem, CreateExpensePayload } from '../../services/expenses.service';
 
 interface Activity {
   technician: string;
@@ -34,7 +35,7 @@ interface NavItem {
   icon: string;
 }
 
-type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'mfa' | 'settings';
+type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'expenses' | 'mfa' | 'settings';
 type PayCodeType = 'worked' | 'non-worked' | 'premium';
 
 interface TimeSheetPayCode {
@@ -62,6 +63,31 @@ interface TimeSheetRow {
   isNewlyAdded: boolean;
 }
 
+interface ExpenseRow {
+  id: number;
+  date: string;
+  expenseCode: string;
+  comment: string;
+  amount: number | null;
+  userId: number | null;
+  workOrderId: number | null;
+}
+
+interface ExpenseListRow {
+  id: number;
+  date: string;
+  expenseCode: string;
+  description: string;
+  amount: number;
+  userId: number;
+  userName: string;
+  workOrderId: number | null;
+  workOrderName: string;
+  status: string;
+  submittedAt: string;
+  approvedAt: string;
+}
+
 interface WorkOrderProjectOption {
   id: number;
   name: string;
@@ -81,6 +107,8 @@ type ProjectOptionsSource = 'default' | 'capex';
 
 type TimeSheetViewMode = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
 type TimeSheetScreenMode = 'list' | 'create';
+type ExpenseScreenMode = 'list' | 'create';
+type ExpenseViewMode = 'WEEKLY' | 'BIWEEKLY';
 
 interface TimesheetListItem {
   id: number;
@@ -210,7 +238,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { id: 'teams', label: 'Team', icon: 'streamline_hierarchy-10.svg' },
     { id: 'work-orders', label: 'Work Order', icon: 'fluent-mdl2_work-flow.svg' },
     { id: 'leaves', label: 'PTO & Holiday', icon: 'proicons_document.svg' },
-    { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' }
+    { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' },
+    { id: 'expenses', label: 'Expenses', icon: 'proicons_document.svg' }
   ];
 
   metrics: MetricCard[] = [];
@@ -380,6 +409,25 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   rowValidationErrors: Record<number, string> = {};
   @ViewChild('timesheetTableWrap') private timesheetTableWrap?: ElementRef<HTMLDivElement>;
   showTimesheetScrollHint = false;
+  expenseRows: ExpenseRow[] = [];
+  nextExpenseRowId = 1;
+  expenseScreenMode: ExpenseScreenMode = 'list';
+  expenseListLoading = false;
+  expenseListError?: string;
+  expenseRowsList: ExpenseListRow[] = [];
+  expenseStatusFilter = '';
+  expenseSubmitting = false;
+  expenseUserOptions: Array<{ id: number; name: string }> = [];
+  expenseUsersLoading = false;
+  selectedExpenseUserId: number | null = null;
+  expenseView: ExpenseViewMode = 'BIWEEKLY';
+  expensePeriodStart = '';
+  expensePeriodEnd = '';
+  expenseCurrentPeriodOffset = 0;
+  expenseWorkOrderOptions: WorkOrderProjectOption[] = [];
+  expenseWorkOrderLoading = false;
+
+  readonly expenseCodeOptions: string[] = ['LAB', 'TRV', 'MEAL', 'MISC', 'TRN'];
 
   constructor(
     private route: ActivatedRoute,
@@ -388,6 +436,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     private workOrderService: WorkOrderService,
     private dashboardService: DashboardService,
     private timesheetService: TimesheetService,
+    private expensesService: ExpensesService,
     private userManagementService: UserManagementService,
     private permissionService: PermissionService,
     private toastr: ToastrService,
@@ -461,7 +510,490 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       this.loadLeaves();
     } else if (tab === 'time-sheet') {
       this.initializeTimeSheet();
+    } else if (tab === 'expenses') {
+      this.initializeExpenses();
     }
+  }
+
+  private initializeExpenses(): void {
+    this.expenseScreenMode = 'list';
+    this.loadExpensesList(this.expenseStatusFilter);
+  }
+
+  openExpenseCreate(): void {
+    this.resolveExpenseUserContext();
+    if (!this.expensePeriodStart || !this.expensePeriodEnd) {
+      this.setExpensePeriod(0);
+    } else {
+      this.setExpensePeriod(this.expenseCurrentPeriodOffset);
+    }
+    this.loadExpenseWorkOrderOptions();
+    this.expenseScreenMode = 'create';
+  }
+
+  openExpenseList(): void {
+    this.expenseScreenMode = 'list';
+    this.loadExpensesList(this.expenseStatusFilter);
+  }
+
+  loadExpensesList(status?: string): void {
+    if (this.expenseListLoading) {
+      return;
+    }
+
+    this.expenseListLoading = true;
+    this.expenseListError = undefined;
+    const normalizedStatus = String(status ?? '').trim();
+    this.expenseStatusFilter = normalizedStatus;
+    const userId = this.getLoggedInUserId();
+    const request$ = this.isTechnicianRole && userId && userId > 0
+      ? this.expensesService.fetchExpensesByUser(userId, normalizedStatus || undefined)
+      : this.expensesService.fetchExpenses(normalizedStatus || undefined);
+
+    request$
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.expenseListLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: ExpenseListItem[] | { data?: ExpenseListItem[] }) => {
+          this.zone.run(() => {
+            const items = this.normalizeExpenseList(response);
+            this.expenseRowsList = items.map((item) => this.toExpenseListRow(item));
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.expenseRowsList = [];
+            this.expenseListError = 'Failed to load expenses list.';
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  private normalizeExpenseList(response: ExpenseListItem[] | { data?: ExpenseListItem[] }): ExpenseListItem[] {
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+    return [];
+  }
+
+  private toExpenseListRow(item: ExpenseListItem): ExpenseListRow {
+    const source = item as any;
+    const first = String(source.user_first_name ?? source.userFirstName ?? '').trim();
+    const last = String(source.user_last_name ?? source.userLastName ?? '').trim();
+    const fullName = [first, last].filter(Boolean).join(' ').trim();
+    const userName = String(source.user_name ?? source.userName ?? '').trim() || fullName || 'Unknown';
+    const expenseCode = String(source.expense_code ?? source.expenseCode ?? '').trim();
+
+    return {
+      id: Number(source.id) || 0,
+      date: String(source.date ?? ''),
+      expenseCode,
+      description: String(source.description ?? ''),
+      amount: Number(source.amount ?? 0),
+      userId: Number(source.user_id ?? source.userId) || 0,
+      userName,
+      workOrderId: Number.isFinite(Number(source.work_order_id ?? source.workOrderId))
+        ? Number(source.work_order_id ?? source.workOrderId)
+        : null,
+      workOrderName: String(source.work_order_name ?? source.workOrderName ?? '').trim(),
+      status: String(source.status ?? '-'),
+      submittedAt: String(source.submitted_at ?? source.submittedAt ?? ''),
+      approvedAt: String(source.approved_at ?? source.approvedAt ?? '')
+    };
+  }
+
+  formatExpenseDateTime(value: string): string {
+    const raw = String(value ?? '').trim();
+    if (!raw) {
+      return '-';
+    }
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) {
+      return raw;
+    }
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  openExpenseDetail(id: number): void {
+    if (!id || id <= 0) {
+      return;
+    }
+    this.router.navigate(['/tm-system', 'expenses', id]);
+  }
+
+  private seedExpenseRows(): void {
+    const start = this.parseCalendarDate(this.expensePeriodStart);
+    const end = this.parseCalendarDate(this.expensePeriodEnd);
+    if (!start || !end) {
+      this.nextExpenseRowId = 1;
+      this.expenseRows = [this.createExpenseRow(this.toIsoDate(new Date()))];
+      return;
+    }
+
+    this.nextExpenseRowId = 1;
+    const rows: ExpenseRow[] = [];
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    while (cursor <= end) {
+      rows.push(this.createExpenseRow(this.toIsoDate(cursor)));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    this.expenseRows = rows.length ? rows : [this.createExpenseRow(this.toIsoDate(new Date()))];
+  }
+
+  private createExpenseRow(date: string): ExpenseRow {
+    return {
+      id: this.nextExpenseRowId++,
+      date,
+      expenseCode: this.expenseCodeOptions[0],
+      comment: '',
+      amount: null,
+      userId: this.getDefaultExpenseUserId(),
+      workOrderId: null
+    };
+  }
+
+  private getDefaultExpenseUserId(): number | null {
+    if (this.isAdminRole) {
+      return this.selectedExpenseUserId;
+    }
+    return this.getLoggedInUserId();
+  }
+
+  private resolveExpenseUserContext(): void {
+    if (this.isAdminRole) {
+      this.loadExpenseUserOptions();
+      return;
+    }
+    this.selectedExpenseUserId = this.getLoggedInUserId();
+    this.selectedTimeSheetTechnicianId = this.selectedExpenseUserId;
+  }
+
+  private loadExpenseUserOptions(): void {
+    if (this.expenseUsersLoading || this.expenseUserOptions.length) {
+      return;
+    }
+    this.expenseUsersLoading = true;
+    this.technicianService
+      .fetchActiveUsers()
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.expenseUsersLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            const users = Array.isArray(response?.data) ? response.data : [];
+            this.expenseUserOptions = users
+              .map((u: any) => {
+                const id = Number(u?.id);
+                const first = String(u?.firstName ?? '').trim();
+                const last = String(u?.lastName ?? '').trim();
+                const fullName = [first, last].filter(Boolean).join(' ').trim();
+                const name = fullName || String(u?.email ?? '').trim() || `User ${id}`;
+                return Number.isFinite(id) && id > 0 ? { id, name } : null;
+              })
+              .filter((u: { id: number; name: string } | null): u is { id: number; name: string } => !!u);
+
+            if (!this.selectedExpenseUserId && this.expenseUserOptions.length) {
+              this.selectedExpenseUserId = this.expenseUserOptions[0].id;
+            }
+            this.selectedTimeSheetTechnicianId = this.selectedExpenseUserId;
+            this.syncExpenseRowsUserId();
+            this.loadExpenseWorkOrderOptions();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.expenseUserOptions = [];
+            this.selectedExpenseUserId = null;
+            this.selectedTimeSheetTechnicianId = null;
+            this.syncExpenseRowsUserId();
+            this.expenseWorkOrderOptions = [];
+          });
+        }
+      });
+  }
+
+  onExpenseUserChange(value: number | null): void {
+    const parsed = Number(value);
+    this.selectedExpenseUserId = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    this.selectedTimeSheetTechnicianId = this.selectedExpenseUserId;
+    this.loadExpenseWorkOrderOptions();
+    this.syncExpenseRowsUserId();
+  }
+
+  private loadExpenseWorkOrderOptions(): void {
+    if (this.expenseWorkOrderLoading) {
+      return;
+    }
+    this.expenseWorkOrderLoading = true;
+    this.workOrderService
+      .fetchWorkOrders(0, 200)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.zone.run(() => {
+            this.expenseWorkOrderLoading = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: (response: any) => {
+          this.zone.run(() => {
+            this.expenseWorkOrderOptions = this.normalizeProjectOptions(response);
+            this.cdr.detectChanges();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.expenseWorkOrderOptions = [];
+            this.cdr.detectChanges();
+          });
+        }
+      });
+  }
+
+  onExpenseWorkOrderChange(row: ExpenseRow, value: number | string | null): void {
+    const parsed = Number(value);
+    row.workOrderId = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private syncExpenseRowsUserId(): void {
+    const userId = this.getDefaultExpenseUserId();
+    this.expenseRows = this.expenseRows.map((row) => ({ ...row, userId }));
+  }
+
+  private getLoggedInUserId(): number | null {
+    const candidates = [
+      localStorage.getItem('userId'),
+      localStorage.getItem('technicianId')
+    ];
+
+    for (const raw of candidates) {
+      const parsed = Number(String(raw ?? '').trim());
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    const token = String(localStorage.getItem('authToken') ?? '').trim();
+    const normalized = token.replace(/^Bearer\s+/i, '');
+    const payloadPart = normalized.split('.')[1] ?? '';
+    if (!payloadPart) {
+      return null;
+    }
+
+    try {
+      const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const json = JSON.parse(atob(base64));
+      const tokenCandidates = [json?.userId, json?.user_id, json?.sub];
+      for (const value of tokenCandidates) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  private toExpensePayload(row: ExpenseRow): CreateExpensePayload | null {
+    const date = this.toDateKey(row.date);
+    const expenseCode = String(row.expenseCode ?? '').trim();
+    const description = String(row.comment ?? '').trim();
+    const amount = Number(row.amount);
+    const userId = this.resolveExpensePayloadUserId(row);
+    const workOrderId = Number(row.workOrderId);
+    const workOrderName = this.getExpenseWorkOrderName(workOrderId);
+
+    if (!date || !expenseCode || !Number.isFinite(amount) || amount < 0 || !Number.isFinite(userId) || userId <= 0 || !Number.isFinite(workOrderId) || workOrderId <= 0 || !workOrderName) {
+      return null;
+    }
+
+    return {
+      date,
+      expense_code: expenseCode,
+      description,
+      amount,
+      user_id: userId,
+      work_order_id: workOrderId,
+      work_order_name: workOrderName
+    };
+  }
+
+  private resolveExpensePayloadUserId(row: ExpenseRow): number {
+    if (this.isAdminRole) {
+      const selected = Number(this.selectedExpenseUserId ?? row.userId);
+      return Number.isFinite(selected) && selected > 0 ? selected : 0;
+    }
+
+    const loggedIn = Number(this.getLoggedInUserId());
+    return Number.isFinite(loggedIn) && loggedIn > 0 ? loggedIn : 0;
+  }
+
+  private getExpenseWorkOrderName(workOrderId: number): string {
+    if (!Number.isFinite(workOrderId) || workOrderId <= 0) {
+      return '';
+    }
+    const selected = this.expenseWorkOrderOptions.find((option) => Number(option.id) === Number(workOrderId));
+    return String(selected?.name ?? '').trim();
+  }
+
+  addExpenseRow(date?: string): void {
+    const normalizedDate = this.toDateKey(String(date ?? '').trim()) || this.toIsoDate(new Date());
+    const nextRow = this.createExpenseRow(normalizedDate);
+    const lastIndexForDate = this.findLastExpenseIndexByDate(normalizedDate);
+
+    if (lastIndexForDate >= 0) {
+      this.expenseRows.splice(lastIndexForDate + 1, 0, nextRow);
+      return;
+    }
+    this.expenseRows.push(nextRow);
+  }
+
+  private findLastExpenseIndexByDate(date: string): number {
+    const dateKey = this.toDateKey(date);
+    for (let i = this.expenseRows.length - 1; i >= 0; i -= 1) {
+      if (this.toDateKey(this.expenseRows[i].date) === dateKey) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  removeExpenseRow(index: number): void {
+    if (index < 0 || index >= this.expenseRows.length) {
+      return;
+    }
+    this.expenseRows.splice(index, 1);
+    if (!this.expenseRows.length) {
+      this.expenseRows = [this.createExpenseRow(this.toIsoDate(new Date()))];
+    }
+  }
+
+  submitExpenses(): void {
+    if (this.expenseSubmitting) {
+      return;
+    }
+
+    const payloads = this.expenseRows
+      .map((row) => this.toExpensePayload(row))
+      .filter((payload): payload is CreateExpensePayload => !!payload);
+
+    if (!payloads.length) {
+      this.toastr.error('Please fill required fields: Date, Expense Code, Amount, Technician and Work Order ID.');
+      return;
+    }
+
+    this.expenseSubmitting = true;
+    forkJoin(payloads.map((payload) => this.expensesService.createExpense(payload)))
+      .pipe(
+        finalize(() => {
+          this.zone.run(() => {
+            this.expenseSubmitting = false;
+            this.cdr.detectChanges();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.toastr.success('Expense saved successfully.');
+            this.openExpenseList();
+          });
+        },
+        error: (err: any) => {
+          this.zone.run(() => {
+            this.toastr.error(err?.error?.message || 'Failed to save expense.');
+          });
+        }
+      });
+  }
+
+  private setExpensePeriod(offsetPeriods: number): void {
+    const now = new Date();
+    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    start.setHours(0, 0, 0, 0);
+
+    const periodDays = this.expenseView === 'WEEKLY' ? 7 : 14;
+    start = this.getPeriodStartForDate(start, periodDays);
+    if (offsetPeriods > 0) {
+      for (let i = 0; i < offsetPeriods; i += 1) {
+        start = this.getNextPeriodStart(start, periodDays);
+      }
+    } else if (offsetPeriods < 0) {
+      for (let i = 0; i < Math.abs(offsetPeriods); i += 1) {
+        start = this.getPreviousPeriodStart(start, periodDays);
+      }
+    }
+    const end = this.getPeriodEndDate(start, periodDays);
+
+    this.expenseCurrentPeriodOffset = offsetPeriods;
+    this.expensePeriodStart = this.toIsoDate(start);
+    this.expensePeriodEnd = this.toIsoDate(end);
+    this.seedExpenseRows();
+  }
+
+  onExpenseViewChange(): void {
+    this.expenseCurrentPeriodOffset = 0;
+    this.setExpensePeriod(0);
+  }
+
+  previousExpensePeriod(): void {
+    if (!this.canGoPreviousExpensePeriod) {
+      return;
+    }
+    this.setExpensePeriod(this.expenseCurrentPeriodOffset - 1);
+  }
+
+  nextExpensePeriod(): void {
+    this.setExpensePeriod(this.expenseCurrentPeriodOffset + 1);
+  }
+
+  get canGoPreviousExpensePeriod(): boolean {
+    const start = this.parseCalendarDate(this.expensePeriodStart);
+    if (!start) {
+      return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const periodDays = this.expenseView === 'WEEKLY' ? 7 : 14;
+    const previousPeriodStart = this.getPreviousPeriodStart(start, periodDays);
+    const previousPeriodEnd = this.getPeriodEndDate(previousPeriodStart, periodDays);
+
+    return previousPeriodEnd >= today;
   }
 
   private initializeTimeSheet(): void {
@@ -3938,6 +4470,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     localStorage.removeItem('authenticatorVerified');
     localStorage.removeItem('loginEmail');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('userId');
     localStorage.removeItem('userCompanies');
     localStorage.removeItem('selectedCompanyId');
     localStorage.removeItem('selectedCompanyNumber');
@@ -4141,6 +4674,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.timeSheetGlAccountOptions = [];
     this.timeSheetWorkOrderTypeOptions = [];
     this.loadedProjectOptionsSource = undefined;
+    this.expenseRowsList = [];
+    this.expenseListError = undefined;
+    this.expenseWorkOrderOptions = [];
 
     switch (this.activeTab) {
       case 'dashboard':
@@ -4170,6 +4706,15 @@ export class TmSystemComponent implements OnInit, OnDestroy {
           this.loadTimeSheetGlAccountOptions();
         } else {
           this.loadTimesheetList();
+        }
+        break;
+      case 'expenses':
+        if (this.expenseScreenMode === 'create') {
+          this.resolveExpenseUserContext();
+          this.syncExpenseRowsUserId();
+          this.loadExpenseWorkOrderOptions();
+        } else {
+          this.loadExpensesList(this.expenseStatusFilter);
         }
         break;
       default:
@@ -4220,6 +4765,8 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         return this.workOrdersLoading;
       case 'leaves':
         return this.leavesLoading || this.holidaysLoading || this.pendingLoads > 0;
+      case 'expenses':
+        return this.expenseScreenMode === 'list' && this.expenseListLoading;
       default:
         return false;
     }

@@ -74,6 +74,12 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'tm-system/expenses/:id',
+    loadComponent: () =>
+      import('./components/view-expense/view-expense').then((m) => m.ViewExpenseComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'tm-system/technicians/:id',
     loadComponent: () =>
       import('./components/view-technician/view-technician').then((m) => m.ViewTechnicianComponent),

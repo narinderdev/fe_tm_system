@@ -186,6 +186,12 @@ export class LoginComponent {
               } else {
                 localStorage.removeItem('userRole');
               }
+              const loggedInUserId = (response as any)?.data?.user?.id ?? (response as any)?.data?.userId;
+              if (loggedInUserId !== undefined && loggedInUserId !== null && String(loggedInUserId).trim().length) {
+                localStorage.setItem('userId', String(loggedInUserId));
+              } else {
+                localStorage.removeItem('userId');
+              }
 
               if (companies.length) {
                 const existingId = String(localStorage.getItem('selectedCompanyId') ?? '').trim();

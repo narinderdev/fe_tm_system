@@ -1542,6 +1542,7 @@ td:nth-child(7) {
   min-width: 180px;
 }
 
+
 @media (max-width: 1100px) {
   .tm-layout {
     display: block; /* stack sections instead of grid */

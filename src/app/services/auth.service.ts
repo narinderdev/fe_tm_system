@@ -329,6 +329,11 @@ export class AuthService {
       localStorage.setItem('userRole', String(role));
     }
 
+    const userId = response?.data?.user?.id ?? response?.data?.userId ?? null;
+    if (userId !== null && userId !== undefined && String(userId).trim().length) {
+      localStorage.setItem('userId', String(userId));
+    }
+
     localStorage.setItem('emailOtpVerified', 'true');
     localStorage.setItem('mfaEnabled', 'true');
     localStorage.setItem('authenticatorVerified', 'true');

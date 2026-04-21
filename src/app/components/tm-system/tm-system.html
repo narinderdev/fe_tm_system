@@ -1198,6 +1198,151 @@
           </section>
         </ng-container>
 
+        <ng-container *ngSwitchCase="'expenses'">
+          <section class="timesheet-card expenses-card" style="padding: 16px; border-radius: 16px;">
+            <ng-container *ngIf="expenseScreenMode === 'list'; else expenseCreateTemplate">
+              <div class="timesheet-list-header">
+                <h3></h3>
+                <div class="timesheet-actions">
+                  <button type="button" class="ts-btn ts-btn-primary" (click)="openExpenseCreate()">Create Expense</button>
+                </div>
+              </div>
+
+              <div class="table-wrapper timesheet-table-wrap">
+                <table class="timesheet-table timesheet-list-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Date</th>
+                      <th>Expense Code</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Technician</th>
+                      <th>Work Order</th>
+                      <th>Status</th>
+                      <th class="actions-col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngIf="expenseListLoading">
+                      <td colspan="9">Loading expenses...</td>
+                    </tr>
+                    <tr *ngIf="!expenseListLoading && expenseListError">
+                      <td colspan="9">{{ expenseListError }}</td>
+                    </tr>
+                    <tr *ngFor="let item of expenseRowsList">
+                      <td class="linkish">#{{ item.id }}</td>
+                      <td>{{ formatCompactDate(item.date) }}</td>
+                      <td>{{ item.expenseCode || '-' }}</td>
+                      <td>{{ item.description || '-' }}</td>
+                      <td>{{ item.amount | number:'1.2-2' }}</td>
+                      <td>{{ item.userName }}</td>
+                      <td>{{ item.workOrderName || (item.workOrderId ?? '-') }}</td>
+                      <td>{{ item.status || '-' }}</td>
+                      <td class="actions">
+                        <button class="icon-btn ghost" aria-label="View expense" (click)="openExpenseDetail(item.id)">
+                          <img src="/assets/icons/Vector.svg" alt="View" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr *ngIf="!expenseListLoading && !expenseListError && !expenseRowsList.length">
+                      <td colspan="9">No expense records found.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-container>
+
+            <ng-template #expenseCreateTemplate>
+              <div class="timesheet-create-header expenses-create-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <button type="button" class="ts-btn ts-btn-ghost expenses-back-btn" style="height:38px;padding:0 16px;font-size:13px;" (click)="openExpenseList()">&larr; Back to Listing</button>
+                  <div class="timesheet-period" style="border:1px solid #dbe6f3;border-radius:12px;padding:6px 10px;background:#f8fbff;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <label>View:</label>
+                    <select [(ngModel)]="expenseView" (ngModelChange)="onExpenseViewChange()">
+                      <option value="WEEKLY">Weekly</option>
+                      <option value="BIWEEKLY">By Weekly</option>
+                    </select>
+                    <button type="button" class="period-nav" (click)="previousExpensePeriod()" [disabled]="!canGoPreviousExpensePeriod">&lt;</button>
+                    <span class="period-range">{{ formatDisplayDate(expensePeriodStart) }} to {{ formatDisplayDate(expensePeriodEnd) }}</span>
+                    <button type="button" class="period-nav" (click)="nextExpensePeriod()">&gt;</button>
+                  </div>
+                </div>
+                <div class="expense-admin-user-select" style="display:inline-flex;align-items:center;gap:8px;min-width:280px;justify-content:flex-end;" *ngIf="isAdminRole">
+                  <label for="expenseUserId" style="font-size:13px;color:#334155;font-weight:700;">Technician</label>
+                  <select
+                    id="expenseUserId"
+                    [ngModel]="selectedExpenseUserId"
+                    (ngModelChange)="onExpenseUserChange($event)"
+                    style="min-width:260px;max-width:320px;height:38px;border:1px solid #c8d5e6;border-radius:10px;padding:0 12px;background:#fff;"
+                  >
+                    <option [ngValue]="null">Select technician</option>
+                    <option [ngValue]="null" disabled *ngIf="expenseUsersLoading">Loading technicians...</option>
+                    <option *ngFor="let user of expenseUserOptions" [ngValue]="user.id">{{ user.name }} ({{ user.id }})</option>
+                  </select>
+                </div>
+              </div>
+              <div class="timesheet-table-shell">
+                <div class="table-wrapper timesheet-table-wrap">
+                  <table class="timesheet-table expenses-table" style="min-width: 980px;">
+                    <thead>
+                      <tr>
+                        <th style="width: 18%;">Date</th>
+                        <th style="width: 12%;">Expense Code</th>
+                        <th style="width: 22%;">Description</th>
+                        <th style="width: 10%;">Amount</th>
+                        <th style="width: 16%;">Work Order ID</th>
+                        <th class="expenses-action-head" style="text-align:left;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let row of expenseRows; let i = index">
+                        <td>
+                          <input type="date" [(ngModel)]="row.date" />
+                        </td>
+                        <td>
+                          <select [(ngModel)]="row.expenseCode">
+                            <option *ngFor="let code of expenseCodeOptions" [value]="code">{{ code }}</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input class="timesheet-comment-input" type="text" [(ngModel)]="row.comment" placeholder="Description" />
+                        </td>
+                        <td>
+                          <input type="number" min="0" step="0.01" [(ngModel)]="row.amount" placeholder="0" />
+                        </td>
+                        <td>
+                          <select [ngModel]="row.workOrderId ?? null" (ngModelChange)="onExpenseWorkOrderChange(row, $event)">
+                            <option [ngValue]="null">Select</option>
+                            <option [ngValue]="null" disabled *ngIf="expenseWorkOrderLoading">Loading...</option>
+                            <option [ngValue]="null" disabled *ngIf="!expenseWorkOrderLoading && !expenseWorkOrderOptions.length">No work orders</option>
+                            <option *ngFor="let option of expenseWorkOrderOptions" [ngValue]="option.id">
+                              {{ option.name }}
+                            </option>
+                          </select>
+                        </td>
+                        <td>
+                          <div class="expense-row-actions" style="display:inline-flex;gap:8px;align-items:center;">
+                            <button type="button" class="timesheet-add-row-btn expense-add-row-btn" style="border-color:#b9cff3;background:#eff5ff;color:#1d4ed8;" (click)="addExpenseRow(row.date)">+</button>
+                            <button type="button" class="timesheet-add-row-btn timesheet-delete-row-btn expense-delete-row-btn" style="border-color:#f4c7cb;background:#fff4f5;" (click)="removeExpenseRow(i)">
+                              <img src="/assets/icons/delete.svg" alt="Delete row" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="timesheet-submit-wrap">
+                <button type="button" class="ts-btn ts-btn-primary" (click)="submitExpenses()" [disabled]="expenseSubmitting">
+                  {{ expenseSubmitting ? 'Saving...' : 'Save Expenses' }}
+                </button>
+              </div>
+            </ng-template>
+          </section>
+        </ng-container>
+
         <section class="placeholder" *ngSwitchDefault>
           <div class="placeholder-card">
             <h3>{{ activeLabel }}</h3>

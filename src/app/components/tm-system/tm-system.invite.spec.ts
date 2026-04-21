@@ -10,6 +10,7 @@ import { TechnicianService } from '../../services/technician.service';
 import { WorkOrderService } from '../../services/work-order.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { TimesheetService } from '../../services/timesheet.service';
+import { ExpensesService } from '../../services/expenses.service';
 import { UserManagementService } from '../../services/user-management.service';
 import { PermissionService } from '../../services/permission.service';
 import { ActivatedRoute } from '@angular/router';
@@ -44,6 +45,10 @@ describe('TmSystemComponent (invite technician)', () => {
     inviteUser: vi.fn().mockReturnValue(of({ message: 'Invited.' }))
   };
 
+  const expensesServiceMock = {
+    fetchExpenses: vi.fn().mockReturnValue(of([]))
+  };
+
   const permissionServiceMock = {
     hasPermission: vi.fn().mockReturnValue(true)
   };
@@ -68,6 +73,7 @@ describe('TmSystemComponent (invite technician)', () => {
         { provide: WorkOrderService, useValue: workOrderServiceMock },
         { provide: DashboardService, useValue: dashboardServiceMock },
         { provide: TimesheetService, useValue: timesheetServiceMock },
+        { provide: ExpensesService, useValue: expensesServiceMock },
         { provide: UserManagementService, useValue: userManagementServiceMock },
         { provide: PermissionService, useValue: permissionServiceMock },
         { provide: ToastrService, useValue: toastrMock },
