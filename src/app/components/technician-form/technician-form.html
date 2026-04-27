@@ -59,12 +59,12 @@
       </div>
 
       <div class="field">
-        <label>Availability</label>
+        <label>Status</label>
         <select formControlName="status">
           <option value="">Select status</option>
           <option *ngFor="let option of statusOptions" [value]="option.value">{{ option.label }}</option>
         </select>
-        <small class="error" *ngIf="form.get('status')?.touched && form.get('status')?.invalid">Availability is required.</small>
+        <small class="error" *ngIf="form.get('status')?.touched && form.get('status')?.invalid">Status is required.</small>
       </div>
 
       <div class="field">
