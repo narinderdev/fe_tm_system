@@ -7,6 +7,7 @@
       <span>Back to Expenses</span>
     </button>
     <div class="id-chip" *ngIf="expense?.id">EXP #{{ expense?.id }}</div>
+    <button class="export-btn" type="button" (click)="exportAs('excel')">Export as excel</button>
     <button
       class="approve-btn"
       type="button"

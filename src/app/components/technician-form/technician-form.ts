@@ -34,9 +34,8 @@ export class TechnicianFormComponent implements OnInit, OnDestroy {
   private loadGuardTimer?: ReturnType<typeof setTimeout>;
 
   readonly statusOptions = [
-    { value: 'AVAILABLE', label: 'Available' },
-    { value: 'WORKING', label: 'Working' },
-    { value: 'ON_LEAVE', label: 'On Leave' }
+    { value: 'ACTIVE', label: 'Active' },
+    { value: 'INACTIVE', label: 'Inactive' }
   ];
 
   readonly roleOptions = [
