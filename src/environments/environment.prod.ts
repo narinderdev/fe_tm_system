@@ -1,4 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://3.82.49.182:8083'
+  // apiUrl: 'https://1519-203-190-154-162.ngrok-free.app'
+  apiUrl: 'https://tm-api.myfinlware.com'
 };
+
