@@ -266,7 +266,7 @@ test.describe('TM module', () => {
     await expect(page.getByRole('heading', { name: 'Timesheet #12' })).toBeVisible();
     await expect(page.getByText('Site inspection')).toBeVisible();
     await expect(page.getByText('Medical appointment')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export as excel' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Export as Excel' })).toBeVisible();
     await expect(page.getByText('Total Hours').locator('..').locator('strong')).toHaveText('10.00');
   });
 });

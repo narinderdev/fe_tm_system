@@ -21,7 +21,7 @@
         <button *ngIf="canApproveTimesheet" type="button" class="correction-btn" (click)="returnForCorrection()" [disabled]="sendingBack || approving">
           {{ sendingBack ? 'Returning...' : 'Return for correction' }}
         </button>
-        <button type="button" class="export-btn" (click)="exportAs('excel')">Export as excel</button>
+      <button type="button" class="export-btn" (click)="exportAs('excel')">Export as Excel</button>
       </div>
     </div>
 
