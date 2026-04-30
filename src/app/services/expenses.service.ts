@@ -29,6 +29,10 @@ export interface CreateExpensePayload {
   user_id: number;
   work_order_id: number;
   work_order_name: string;
+  work_order_type: string;
+  department: string;
+  account: string;
+  expense_type: string;
 }
 
 @Injectable({

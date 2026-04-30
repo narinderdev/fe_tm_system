@@ -71,6 +71,11 @@ interface ExpenseRow {
   amount: number | null;
   userId: number | null;
   workOrderId: number | null;
+  workOrderName: string;
+  workOrderType: string;
+  department: string;
+  account: string;
+  expenseType: string;
 }
 
 interface ExpenseListRow {
@@ -427,7 +432,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   expenseWorkOrderOptions: WorkOrderProjectOption[] = [];
   expenseWorkOrderLoading = false;
 
-  readonly expenseCodeOptions: string[] = ['LAB', 'TRV', 'MEAL', 'MISC', 'TRN'];
+  readonly expenseTypeOptions: string[] = ['TRAVEL', 'MEAL', 'MATERIAL', 'OTHER'];
 
   constructor(
     private route: ActivatedRoute,
@@ -527,6 +532,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     } else {
       this.setExpensePeriod(this.expenseCurrentPeriodOffset);
     }
+    this.loadTimeSheetWorkOrderTypeOptions();
     this.loadExpenseWorkOrderOptions();
     this.expenseScreenMode = 'create';
   }
@@ -662,15 +668,21 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   private createExpenseRow(date: string): ExpenseRow {
-    return {
+    const row: ExpenseRow = {
       id: this.nextExpenseRowId++,
       date,
-      expenseCode: this.expenseCodeOptions[0],
+      expenseCode: '',
       comment: '',
       amount: null,
       userId: this.getDefaultExpenseUserId(),
-      workOrderId: null
+      workOrderId: null,
+      workOrderName: '',
+      workOrderType: '',
+      department: '',
+      account: '',
+      expenseType: ''
     };
+    return row;
   }
 
   private getDefaultExpenseUserId(): number | null {
@@ -783,6 +795,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   onExpenseWorkOrderChange(row: ExpenseRow, value: number | string | null): void {
     const parsed = Number(value);
     row.workOrderId = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    row.workOrderName = row.workOrderId ? this.getExpenseWorkOrderName(row.workOrderId) : '';
+  }
+
+  onExpenseWorkOrderTypeChange(row: ExpenseRow): void {
+    this.applyExpenseWorkOrderTypeAutoFill(row);
   }
 
   private syncExpenseRowsUserId(): void {
@@ -834,9 +851,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     const amount = Number(row.amount);
     const userId = this.resolveExpensePayloadUserId(row);
     const workOrderId = Number(row.workOrderId);
-    const workOrderName = this.getExpenseWorkOrderName(workOrderId);
+    const workOrderName = String(row.workOrderName ?? '').trim() || this.getExpenseWorkOrderName(workOrderId);
+    const workOrderType = String(row.workOrderType ?? '').trim();
+    const department = String(row.department ?? '').trim();
+    const account = String(row.account ?? '').trim();
+    const expenseType = String(row.expenseType ?? '').trim();
 
-    if (!date || !expenseCode || !Number.isFinite(amount) || amount < 0 || !Number.isFinite(userId) || userId <= 0 || !Number.isFinite(workOrderId) || workOrderId <= 0 || !workOrderName) {
+    if (!date || !expenseCode || !Number.isFinite(amount) || amount < 0 || !Number.isFinite(userId) || userId <= 0 || !Number.isFinite(workOrderId) || workOrderId <= 0 || !workOrderName || !workOrderType || !department || !account || !expenseType) {
       return null;
     }
 
@@ -847,7 +868,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       amount,
       user_id: userId,
       work_order_id: workOrderId,
-      work_order_name: workOrderName
+      work_order_name: workOrderName,
+      work_order_type: workOrderType,
+      department,
+      account,
+      expense_type: expenseType
     };
   }
 
@@ -911,12 +936,12 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .filter((payload): payload is CreateExpensePayload => !!payload);
 
     if (!payloads.length) {
-      this.toastr.error('Please fill required fields: Date, Expense Code, Amount, Technician and Work Order ID.');
+      this.toastr.error('Please fill required fields: Date, Expense Code, Amount, Technician, Work Order ID, Work Order Name, Work Order Type, Department, Account and Expense Type.');
       return;
     }
 
     this.expenseSubmitting = true;
-    forkJoin(payloads.map((payload) => this.expensesService.createExpense(payload)))
+    forkJoin(payloads.map((payload) => this.expensesService.createExpense(payload).pipe(take(1))))
       .pipe(
         finalize(() => {
           this.zone.run(() => {
@@ -929,7 +954,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         next: () => {
           this.zone.run(() => {
             this.toastr.success('Expense saved successfully.');
-            this.openExpenseList();
+            this.expenseScreenMode = 'list';
+            this.loadExpensesList(this.expenseStatusFilter);
+            this.cdr.detectChanges();
           });
         },
         error: (err: any) => {
@@ -2084,6 +2111,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
           this.zone.run(() => {
             const options = this.normalizeTimeSheetWorkOrderTypeOptions(response);
             this.timeSheetWorkOrderTypeOptions = options;
+            if (this.expenseScreenMode === 'create') {
+              this.syncExpenseRowsWorkOrderTypeDefaults();
+            }
             this.cdr.detectChanges();
           });
         },
@@ -2094,6 +2124,57 @@ export class TmSystemComponent implements OnInit, OnDestroy {
           });
         }
       });
+  }
+
+  private syncExpenseRowsWorkOrderTypeDefaults(): void {
+    const availableTypes = new Set(
+      this.timeSheetWorkOrderTypeOptions
+        .map((option) => String(option.value ?? '').trim())
+        .filter((value) => !!value)
+    );
+
+    this.expenseRows = this.expenseRows.map((row) => {
+      const normalizedType = String(row.workOrderType ?? '').trim();
+      const next: ExpenseRow = {
+        ...row,
+        workOrderType: availableTypes.has(normalizedType) ? normalizedType : ''
+      };
+
+      if (next.workOrderType && (!String(next.department ?? '').trim() || !String(next.account ?? '').trim())) {
+        this.applyExpenseWorkOrderTypeAutoFill(next);
+      }
+
+      return next;
+    });
+  }
+
+  private applyExpenseWorkOrderTypeAutoFill(row: ExpenseRow): void {
+    const selectedValue = String(row.workOrderType ?? '').trim();
+    if (!selectedValue) {
+      return;
+    }
+    const selectedType = this.timeSheetWorkOrderTypeOptions.find((item) => item.value === selectedValue);
+    if (!selectedType) {
+      return;
+    }
+
+    const department = selectedType.propertyUnit || selectedValue;
+    const account = selectedType.costTreatment === 'CAPEX'
+      ? this.capexDefaultAccount
+      : selectedType.defaultGlAccount;
+
+    if (department) {
+      row.department = department;
+      if (!this.timeSheetDepartmentOptions.includes(department)) {
+        this.timeSheetDepartmentOptions = [department, ...this.timeSheetDepartmentOptions];
+      }
+    }
+    if (account) {
+      row.account = account;
+      if (!this.timeSheetGlAccountOptions.includes(account)) {
+        this.timeSheetGlAccountOptions = [account, ...this.timeSheetGlAccountOptions];
+      }
+    }
   }
 
   private normalizeTimeSheetWorkOrderTypeOptions(response: any): TimeSheetWorkOrderTypeOption[] {

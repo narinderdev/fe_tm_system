@@ -1218,9 +1218,9 @@
                       <th>Description</th>
                       <th>Amount</th>
                       <th>Technician</th>
-                      <th>Work Order</th>
-                      <th>Status</th>
-                      <th class="actions-col">Actions</th>
+                      <th style="width: 18%;">Work Order</th>
+                      <th style="white-space: nowrap;">Status</th>
+                      <th class="actions-col" style="white-space: nowrap;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1237,9 +1237,9 @@
                       <td>{{ item.description || '-' }}</td>
                       <td>{{ item.amount | number:'1.2-2' }}</td>
                       <td>{{ item.userName }}</td>
-                      <td>{{ item.workOrderName || (item.workOrderId ?? '-') }}</td>
-                      <td>{{ item.status || '-' }}</td>
-                      <td class="actions">
+                      <td style="white-space: normal; overflow-wrap: anywhere; word-break: break-word;">{{ item.workOrderName || (item.workOrderId ?? '-') }}</td>
+                      <td style="white-space: nowrap;">{{ item.status || '-' }}</td>
+                      <td class="actions" style="white-space: nowrap;">
                         <button class="icon-btn ghost" aria-label="View expense" (click)="openExpenseDetail(item.id)">
                           <img src="/assets/icons/Vector.svg" alt="View" />
                         </button>
@@ -1284,14 +1284,18 @@
               </div>
               <div class="timesheet-table-shell">
                 <div class="table-wrapper timesheet-table-wrap">
-                  <table class="timesheet-table expenses-table" style="min-width: 980px;">
+                  <table class="timesheet-table expenses-table" style="min-width: 1700px;">
                     <thead>
                       <tr>
-                        <th style="width: 18%;">Date</th>
-                        <th style="width: 12%;">Expense Code</th>
-                        <th style="width: 22%;">Description</th>
-                        <th style="width: 10%;">Amount</th>
-                        <th style="width: 16%;">Work Order ID</th>
+                        <th style="width: 11%;">Date</th>
+                        <th style="width: 9%;">Work Order Type</th>
+                        <th style="width: 9%;">Expense Code</th>
+                        <th style="width: 11%;">Work Order</th>
+                        <th style="width: 8%;">Expense Type</th>
+                        <th style="width: 8%;">Department</th>
+                        <th style="width: 8%;">Amount</th>
+                        <th style="width: 8%;">Account</th>
+                        <th style="width: 14%;">Description</th>
                         <th class="expenses-action-head" style="text-align:left;">Action</th>
                       </tr>
                     </thead>
@@ -1301,15 +1305,16 @@
                           <input type="date" [(ngModel)]="row.date" />
                         </td>
                         <td>
-                          <select [(ngModel)]="row.expenseCode">
-                            <option *ngFor="let code of expenseCodeOptions" [value]="code">{{ code }}</option>
+                          <select [(ngModel)]="row.workOrderType" (ngModelChange)="onExpenseWorkOrderTypeChange(row)">
+                            <option value="">Select</option>
+                            <option *ngFor="let type of timeSheetWorkOrderTypeOptions" [value]="type.value">{{ type.label }}</option>
                           </select>
                         </td>
                         <td>
-                          <input class="timesheet-comment-input" type="text" [(ngModel)]="row.comment" placeholder="Description" />
-                        </td>
-                        <td>
-                          <input type="number" min="0" step="0.01" [(ngModel)]="row.amount" placeholder="0" />
+                          <select [(ngModel)]="row.expenseCode">
+                            <option value="">Select</option>
+                            <option *ngFor="let code of timeSheetExpenseCodeOptions" [value]="code">{{ code }}</option>
+                          </select>
                         </td>
                         <td>
                           <select [ngModel]="row.workOrderId ?? null" (ngModelChange)="onExpenseWorkOrderChange(row, $event)">
@@ -1320,6 +1325,24 @@
                               {{ option.name }}
                             </option>
                           </select>
+                        </td>
+                        <td>
+                          <select [(ngModel)]="row.expenseType">
+                            <option value="">Select</option>
+                            <option *ngFor="let type of expenseTypeOptions" [value]="type">{{ type }}</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input class="timesheet-comment-input" type="text" [(ngModel)]="row.department" placeholder="Department" />
+                        </td>
+                        <td>
+                          <input type="number" min="0" step="0.01" [(ngModel)]="row.amount" placeholder="0" />
+                        </td>
+                        <td>
+                          <input class="timesheet-comment-input" type="text" [(ngModel)]="row.account" placeholder="Account" />
+                        </td>
+                        <td>
+                          <input class="timesheet-comment-input" type="text" [(ngModel)]="row.comment" placeholder="Description" />
                         </td>
                         <td>
                           <div class="expense-row-actions" style="display:inline-flex;gap:8px;align-items:center;">

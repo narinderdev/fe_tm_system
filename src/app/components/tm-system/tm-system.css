@@ -1244,6 +1244,8 @@ td:nth-child(7) {
   width: 100%;
 }
 
+/* Expense list: prevent long work-order text from overlapping status/actions */
+
 .timesheet-table th {
   background: linear-gradient(180deg, #f1f5f9 0%, #e8eef6 100%);
   color: #536987;
