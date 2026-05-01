@@ -111,6 +111,10 @@ body {
   width: 100%;
 }
 
+.tm-layout.sidebar-collapsed {
+  grid-template-columns: 70px 1fr;
+}
+
 .tm-sidebar-card {
   background: #ffffff;
   border-radius: 22px;
@@ -185,6 +189,42 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.sidebar-collapse-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sidebar-toggle-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  color: #64748b;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.sidebar-toggle-btn span {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.sidebar-toggle-btn span.rotated {
+  transform: rotate(180deg);
 }
 
 .tm-sidebar-card nav {
@@ -297,6 +337,35 @@ body {
   transition: all 0.15s ease;
   border: 1px solid transparent;
   position: relative;
+}
+
+.tm-sidebar-card .nav-label {
+  white-space: nowrap;
+}
+
+.tm-sidebar-card.collapsed {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.tm-sidebar-card.collapsed .sidebar-collapse-row {
+  justify-content: center;
+}
+
+.tm-sidebar-card.collapsed .tm-brand,
+.tm-sidebar-card.collapsed .nav-label {
+  display: none;
+}
+
+.tm-sidebar-card.collapsed li {
+  justify-content: center;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.tm-sidebar-card.collapsed li .nav-icon-img,
+.tm-sidebar-card.collapsed li .nav-text-icon {
+  margin: 0;
 }
 
 .tm-sidebar-card li .nav-icon {
@@ -1550,6 +1619,10 @@ td:nth-child(7) {
     display: block; /* stack sections instead of grid */
   }
 
+  .tm-layout.sidebar-collapsed {
+    grid-template-columns: none;
+  }
+
   .tm-sidebar-card {
     flex-direction: row;
     align-items: center;
@@ -1588,6 +1661,10 @@ td:nth-child(7) {
 
   .mobile-menu-toggle {
     display: inline-flex;
+  }
+
+  .sidebar-collapse-row {
+    display: none;
   }
 
   .tm-brand {

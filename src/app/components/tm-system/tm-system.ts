@@ -207,6 +207,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   readonly iconPath = '/assets/icons/';
 
   mobileMenuOpen = false;
+  sidebarCollapsed = false;
   companyOptions: StoredCompany[] = [];
   selectedCompanyIndex = 0;
 
@@ -246,6 +247,10 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' },
     { id: 'expenses', label: 'Expenses', icon: 'proicons_document.svg' }
   ];
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
 
   metrics: MetricCard[] = [];
 
@@ -366,6 +371,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   timeSheetListLoading = false;
   timeSheetListError?: string;
   timeSheetList: TimesheetListItem[] = [];
+  private timeSheetListRequestSeq = 0;
   timeSheetView: TimeSheetViewMode = 'BIWEEKLY';
   payPeriodStart = '';
   payPeriodEnd = '';
@@ -1212,10 +1218,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   loadTimesheetList(): void {
-    if (this.timeSheetListLoading) {
-      return;
-    }
-
+    const requestSeq = ++this.timeSheetListRequestSeq;
     this.timeSheetListLoading = true;
     this.timeSheetListError = undefined;
     const technicianId = this.getCurrentTechnicianId();
@@ -1229,6 +1232,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
         take(1),
         finalize(() => {
           this.zone.run(() => {
+            if (requestSeq !== this.timeSheetListRequestSeq) {
+              return;
+            }
             this.timeSheetListLoading = false;
             this.cdr.detectChanges();
           });
@@ -1237,20 +1243,30 @@ export class TmSystemComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response: any) => {
           this.zone.run(() => {
+            if (requestSeq !== this.timeSheetListRequestSeq) {
+              return;
+            }
             const data = response?.data ?? response;
             const list = this.normalizeTimesheetList(data);
 
             if (!list.length) {
               this.timeSheetList = [];
+              this.timeSheetListLoading = false;
               return;
             }
             this.timeSheetList = list;
+            this.timeSheetListLoading = false;
+            this.cdr.detectChanges();
           });
         },
         error: () => {
           this.zone.run(() => {
+            if (requestSeq !== this.timeSheetListRequestSeq) {
+              return;
+            }
             this.timeSheetList = [];
             this.timeSheetListError = 'Failed to load timesheet list.';
+            this.timeSheetListLoading = false;
             this.cdr.detectChanges();
           });
         }

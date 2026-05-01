@@ -19,9 +19,20 @@
     </div>
   </header> -->
 
-  <div class="tm-layout">
-    <aside class="tm-sidebar-card">
+  <div class="tm-layout" [class.sidebar-collapsed]="sidebarCollapsed">
+    <aside class="tm-sidebar-card" [class.collapsed]="sidebarCollapsed">
       <div class="sidebar-top">
+        <div class="sidebar-collapse-row">
+          <button
+            class="sidebar-toggle-btn"
+            type="button"
+            (click)="toggleSidebar()"
+            [attr.aria-label]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+            [title]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          >
+            <span [class.rotated]="sidebarCollapsed">‹</span>
+          </button>
+        </div>
         <button class="mobile-menu-toggle" type="button" (click)="toggleMobileMenu()">
           <span class="hamburger"></span>
           <span class="menu-label">Menu</span>
@@ -40,6 +51,7 @@
             routerLinkActive="active"
             tabindex="0"
             role="button"
+            [title]="sidebarCollapsed ? 'MFA Settings' : ''"
           >
             <span class="nav-text-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -47,7 +59,7 @@
                 <path d="M9.5 12a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0Z" />
               </svg>
             </span>
-            <span>MFA Settings</span>
+            <span class="nav-label">MFA Settings</span>
           </li>
 
           <li
@@ -59,19 +71,20 @@
             tabindex="0"
             role="button"
             (keydown.enter)="selectTab(item.id)"
+            [title]="sidebarCollapsed ? item.label : ''"
           >
             <img class="nav-icon-img" [src]="iconPath + item.icon" [alt]="item.label" />
-            <span>{{ item.label }}</span>
+            <span class="nav-label">{{ item.label }}</span>
           </li>
 
-          <li class="exit-nav" (click)="signOut()" tabindex="0" role="button" (keydown.enter)="signOut()">
+          <li class="exit-nav" (click)="signOut()" tabindex="0" role="button" (keydown.enter)="signOut()" [title]="sidebarCollapsed ? 'Sign Out' : ''">
             <span class="nav-text-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8" stroke-linecap="round" stroke-linejoin="round" />
                 <path d="M9 12h11m0 0-3-3m3 3-3 3" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            <span>Sign Out</span>
+            <span class="nav-label">Sign Out</span>
           </li>
         </ul>
       </nav>
@@ -1238,7 +1251,7 @@
                       <td>{{ item.amount | number:'1.2-2' }}</td>
                       <td>{{ item.userName }}</td>
                       <td style="white-space: normal; overflow-wrap: anywhere; word-break: break-word;">{{ item.workOrderName || (item.workOrderId ?? '-') }}</td>
-                      <td style="white-space: nowrap;">{{ item.status || '-' }}</td>
+                      <td style="white-space: nowrap;">{{ item.status ? (item.status | titlecase) : '-' }}</td>
                       <td class="actions" style="white-space: nowrap;">
                         <button class="icon-btn ghost" aria-label="View expense" (click)="openExpenseDetail(item.id)">
                           <img src="/assets/icons/Vector.svg" alt="View" />
