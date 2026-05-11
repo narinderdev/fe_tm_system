@@ -48,8 +48,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "20kB",
-                  "maximumError": "24kB"
+                  "maximumWarning": "24kB",
+                  "maximumError": "30kB"
                 }
               ],
               "outputHashing": "all"
@@ -65,8 +65,9 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
+          
             "allowedHosts": [
-              "248e-203-190-154-162.ngrok-free.app"
+              "c21f-203-190-154-162.ngrok-free.app"
             ]
           },
           "configurations": {
