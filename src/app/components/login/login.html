@@ -86,7 +86,9 @@
       <small class="error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
         Password is required.
       </small>
-
+      <button class="forgot-password" type="button" (click)="goToForgotPassword()">
+        Forgot Password?
+      </button>
     </div>
 
     <!-- LOGIN BUTTON -->
@@ -130,4 +132,3 @@
 
   </div>
 </div>
-
