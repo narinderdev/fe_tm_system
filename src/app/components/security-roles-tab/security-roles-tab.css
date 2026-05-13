@@ -1,0 +1,97 @@
+.security-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 20px 16px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.toolbar h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.add-btn {
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  height: 42px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 18px 16px;
+  border-bottom: 1px solid #eceff3;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+th {
+  background: #f8fafc;
+  color: #374151;
+  font-weight: 700;
+}
+
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: #e5e7eb;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.pill.active {
+  background: #dcefe1;
+  color: #1f8a4c;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 16px;
+  vertical-align: middle;
+}
+
+.icon-btn img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.error {
+  color: #b91c1c;
+  font-size: 14px;
+}

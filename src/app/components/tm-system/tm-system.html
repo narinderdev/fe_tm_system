@@ -47,22 +47,6 @@
       <nav [class.mobile-hidden]="!mobileMenuOpen">
         <ul>
           <li
-            [routerLink]="['/tm-system', 'mfa']"
-            routerLinkActive="active"
-            tabindex="0"
-            role="button"
-            [title]="sidebarCollapsed ? 'MFA Settings' : ''"
-          >
-            <span class="nav-text-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path d="M12 3l2.5 1.4 2.9-.4.9 2.8 2.3 1.8-1.3 2.6 1.3 2.6-2.3 1.8-.9 2.8-2.9-.4L12 21l-2.5-1.4-2.9.4-.9-2.8-2.3-1.8 1.3-2.6-1.3-2.6 2.3-1.8.9-2.8 2.9.4L12 3z" stroke-linejoin="round" />
-                <path d="M9.5 12a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0Z" />
-              </svg>
-            </span>
-            <span class="nav-label">MFA Settings</span>
-          </li>
-
-          <li
             *ngFor="let item of navItems"
             [class.active]="activeTab === item.id"
             (click)="selectTab(item.id)"
@@ -75,6 +59,43 @@
           >
             <img class="nav-icon-img" [src]="iconPath + item.icon" [alt]="item.label" />
             <span class="nav-label">{{ item.label }}</span>
+          </li>
+
+          <li
+            class="security-parent"
+            [class.active]="isSecurityActive()"
+            [class.expanded]="securityExpanded"
+            tabindex="0"
+            role="button"
+            (click)="toggleSecurityMenu()"
+            (keydown.enter)="toggleSecurityMenu()"
+            [title]="sidebarCollapsed ? 'Security' : ''"
+          >
+            <span class="nav-text-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 3l2.5 1.4 2.9-.4.9 2.8 2.3 1.8-1.3 2.6 1.3 2.6-2.3 1.8-.9 2.8-2.9-.4L12 21l-2.5-1.4-2.9.4-.9-2.8-2.3-1.8 1.3-2.6-1.3-2.6 2.3-1.8.9-2.8 2.9.4L12 3z" stroke-linejoin="round" />
+                <path d="M9.5 12a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0Z" />
+              </svg>
+            </span>
+            <span class="nav-label">Security</span>
+            <span class="security-chevron nav-label" [class.open]="securityExpanded">⌄</span>
+          </li>
+
+          <li
+            class="security-sub-item"
+            *ngFor="let sub of securityTabs"
+            [class.active]="activeTab === sub.id"
+            [class.mobile-hide-item]="sidebarCollapsed"
+            [class.hidden-sub-item]="!securityExpanded"
+            (click)="selectTab(sub.id)"
+            [routerLink]="['/tm-system', sub.id]"
+            routerLinkActive="active"
+            tabindex="0"
+            role="button"
+            (keydown.enter)="selectTab(sub.id)"
+            [title]="sidebarCollapsed ? sub.label : ''"
+          >
+            <span class="nav-label">{{ sub.label }}</span>
           </li>
 
           <li class="exit-nav" (click)="signOut()" tabindex="0" role="button" (keydown.enter)="signOut()" [title]="sidebarCollapsed ? 'Sign Out' : ''">
@@ -1209,6 +1230,18 @@
           <section class="card">
             <app-mfa-settings [embedded]="true"></app-mfa-settings>
           </section>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'roles'">
+          <app-security-roles-tab></app-security-roles-tab>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'users'">
+          <app-security-users-tab></app-security-users-tab>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'security-report'">
+          <app-security-report-tab></app-security-report-tab>
         </ng-container>
 
         <ng-container *ngSwitchCase="'expenses'">

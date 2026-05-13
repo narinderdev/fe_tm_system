@@ -1,0 +1,36 @@
+<section class="security-card">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="toolbar">
+    <h3>Roles</h3>
+    <button type="button" class="add-btn" (click)="openAddRole()">+ Add Role</button>
+  </div>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+  <p *ngIf="!loading && !error && !rows.length">No roles found.</p>
+
+  <div class="table-wrap" *ngIf="rows.length">
+    <table>
+      <thead>
+        <tr>
+          <th>Role Name</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td>{{ row.name }}</td>
+          <td>{{ row.description }}</td>
+          <td><span class="pill" [class.active]="row.active">{{ row.status }}</span></td>
+          <td class="actions-cell">
+            <button type="button" class="icon-btn view" aria-label="View" (click)="openRoleView(row)">
+              <img src="/assets/icons/Vector.svg" alt="View" />
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

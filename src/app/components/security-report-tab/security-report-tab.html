@@ -1,0 +1,73 @@
+<section class="security-card">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="toolbar">
+    <div>
+      <h3>Security Report</h3>
+      <p class="subtitle">Review role and object-level permissions across modules.</p>
+    </div>
+    <div class="view-switch">
+      <button type="button" [class.active]="viewMode === 'role'" (click)="setViewMode('role')">View by Role</button>
+      <button type="button" [class.active]="viewMode === 'object'" (click)="setViewMode('object')">View by Object</button>
+    </div>
+  </div>
+
+  <div class="toolbar toolbar-filters">
+    <div class="filter-grid">
+      <div>
+        <label>Role</label>
+        <select [(ngModel)]="selectedRole" (change)="onRoleChange()" [disabled]="viewMode === 'object'">
+          <option value="ALL">All Roles</option>
+          <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
+        </select>
+      </div>
+      <div>
+        <label>Object</label>
+        <select [(ngModel)]="selectedObject" (change)="onObjectChange()" [disabled]="viewMode === 'role'">
+          <option value="ALL">All Objects</option>
+          <option *ngFor="let object of objects" [value]="object">{{ formatLabel(object) }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn btn-light" (click)="printReport()">Print Report</button>
+      <div class="export-menu-wrap" (click)="$event.stopPropagation()">
+        <button type="button" class="btn btn-primary" (click)="toggleExportMenu()">⬇ Export Report</button>
+        <div class="export-menu" *ngIf="exportMenuOpen">
+          <button type="button" (click)="exportReport('csv')">CSV</button>
+          <button type="button" (click)="exportReport('excel')">Excel</button>
+          <button type="button" (click)="exportReport('pdf')">PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+  <div *ngIf="!loading && !error && filteredRows.length; else emptyState">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Company Number</th>
+            <th>Object</th>
+            <th>Role</th>
+            <th *ngFor="let action of actionColumns">{{ action }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of filteredRows">
+            <td>{{ row.companyNumber }}</td>
+            <td>{{ formatLabel(row.object) }}</td>
+            <td>{{ row.role }}</td>
+            <td *ngFor="let action of actionColumns">
+              <span class="check" [class.on]="hasAction(row, action)">&#10003;</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <ng-template #emptyState>
+    <p *ngIf="!loading && !error">No report data available.</p>
+  </ng-template>
+</section>

@@ -110,6 +110,18 @@ export const routes: Routes = [
       ),
     canActivate: [AuthGuard]
   },
+  {
+    path: 'tm-system/roles/add',
+    loadComponent: () =>
+      import('./components/security-role-add/security-role-add').then((m) => m.SecurityRoleAddComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'tm-system/roles/:id',
+    loadComponent: () =>
+      import('./components/security-role-view/security-role-view').then((m) => m.SecurityRoleViewComponent),
+    canActivate: [AuthGuard]
+  },
   { path: 'tm-system/:tab', component: TmSystemComponent, canActivate: [AuthGuard] },
   { path: '**', redirectTo: 'login' }
 ];

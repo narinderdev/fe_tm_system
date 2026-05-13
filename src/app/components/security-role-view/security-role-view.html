@@ -1,0 +1,57 @@
+<section class="role-view-page">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="head-row">
+    <button class="back-btn" type="button" (click)="goBack()" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+    <h1>{{ roleName || 'Role Details' }}</h1>
+  </div>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <section class="card summary" *ngIf="!error">
+    <div>
+      <p class="meta">Role</p>
+      <h3>{{ roleName || '-' }}</h3>
+      <p>{{ roleDescription || '-' }}</p>
+    </div>
+    <div>
+      <p class="meta">Total Permissions</p>
+      <h3>{{ totalPermissions }}</h3>
+    </div>
+    <div>
+      <p class="meta">Accessible Tabs</p>
+      <h3>{{ accessibleTabs.length }}</h3>
+    </div>
+  </section>
+
+  <section class="card" *ngIf="!error">
+    <h3>Accessible Tabs</h3>
+    <div class="chips">
+      <span class="chip" *ngFor="let tab of accessibleTabs">{{ tab }}</span>
+    </div>
+  </section>
+
+  <section class="card" *ngIf="!error">
+    <h3>Permissions by Module</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Module</th><th>View</th><th>Create</th><th>Update</th><th>Delete</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of permissionRows">
+            <td>{{ row.module }}</td>
+            <td><span class="check" [class.on]="row.view"><svg *ngIf="row.view" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+            <td><span class="check" [class.on]="row.create"><svg *ngIf="row.create" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+            <td><span class="check" [class.on]="row.update"><svg *ngIf="row.update" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+            <td><span class="check" [class.on]="row.delete"><svg *ngIf="row.delete" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>

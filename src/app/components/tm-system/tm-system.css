@@ -403,6 +403,34 @@ body {
   background: #f1f5f9;
 }
 
+.security-parent {
+  justify-content: space-between;
+}
+
+.security-chevron {
+  margin-left: auto;
+  opacity: 0.8;
+  transition: transform 0.2s ease;
+}
+
+.security-chevron.open {
+  transform: rotate(180deg);
+}
+
+.security-sub-item {
+  margin-left: 14px;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.hidden-sub-item {
+  display: none !important;
+}
+
+.tm-sidebar-card.collapsed .mobile-hide-item {
+  display: none !important;
+}
+
 
 .tm-main {
   background: #ffffff;

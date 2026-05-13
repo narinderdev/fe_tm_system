@@ -15,6 +15,9 @@ import { PermissionService } from '../../services/permission.service';
 import { UserManagementService } from '../../services/user-management.service';
 import { MfaSettingsComponent } from '../mfa-settings/mfa-settings';
 import { ExpensesService, ExpenseListItem, CreateExpensePayload } from '../../services/expenses.service';
+import { SecurityRolesTabComponent } from '../security-roles-tab/security-roles-tab';
+import { SecurityUsersTabComponent } from '../security-users-tab/security-users-tab';
+import { SecurityReportTabComponent } from '../security-report-tab/security-report-tab';
 
 interface Activity {
   technician: string;
@@ -35,7 +38,8 @@ interface NavItem {
   icon: string;
 }
 
-type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'expenses' | 'mfa' | 'settings';
+type SecurityTabId = 'roles' | 'users' | 'mfa' | 'security-report';
+type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'expenses' | SecurityTabId | 'settings';
 type PayCodeType = 'worked' | 'non-worked' | 'premium';
 
 interface TimeSheetPayCode {
@@ -197,7 +201,18 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'applicati
 @Component({
   selector: 'app-tm-system',
   standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, Loader, DeleteModalComponent, MfaSettingsComponent],
+  imports: [
+    CommonModule,
+    RouterModule,
+    HttpClientModule,
+    FormsModule,
+    Loader,
+    DeleteModalComponent,
+    MfaSettingsComponent,
+    SecurityRolesTabComponent,
+    SecurityUsersTabComponent,
+    SecurityReportTabComponent
+  ],
   templateUrl: './tm-system.html',
   styleUrls: ['./tm-system.css']
 })
@@ -247,6 +262,13 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' },
     { id: 'expenses', label: 'Expenses', icon: 'proicons_document.svg' }
   ];
+  readonly securityTabs: Array<{ id: SecurityTabId; label: string }> = [
+    { id: 'roles', label: 'Roles' },
+    { id: 'users', label: 'Users' },
+    { id: 'mfa', label: 'MFA' },
+    { id: 'security-report', label: 'Security Report' }
+  ];
+  securityExpanded = true;
 
   toggleSidebar(): void {
     this.sidebarCollapsed = !this.sidebarCollapsed;
@@ -487,6 +509,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     this.loadTabData(id);
   }
 
+  toggleSecurityMenu(): void {
+    this.securityExpanded = !this.securityExpanded;
+  }
+
+  isSecurityActive(): boolean {
+    return this.securityTabs.some(tab => tab.id === this.activeTab);
+  }
+
   get activeNav(): NavItem | undefined {
     return this.navItems.find(item => item.id === this.activeTab);
   }
@@ -498,11 +528,20 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     if (this.activeTab === 'mfa') {
       return 'MFA Settings';
     }
+    if (this.activeTab === 'roles') {
+      return 'Roles';
+    }
+    if (this.activeTab === 'users') {
+      return 'Users';
+    }
+    if (this.activeTab === 'security-report') {
+      return 'Security Report';
+    }
     return this.activeNav?.label ?? '';
   }
 
   private isValidTab(value: string): value is TabId {
-    return value === 'mfa' || this.navItems.some(i => i.id === value);
+    return this.securityTabs.some(tab => tab.id === value) || this.navItems.some(i => i.id === value);
   }
 
   private loadTabData(tab: TabId): void {

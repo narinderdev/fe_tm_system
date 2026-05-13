@@ -110,4 +110,13 @@ describe('TmSystemComponent (dashboard)', () => {
     expect(comp.metrics.length).toBe(4);
     expect(comp.metrics[0].label).toBe('Total Technicians');
   });
+
+  it('should accept security tab route', () => {
+    paramMap$.next(convertToParamMap({ tab: 'roles' }));
+    const fixture = TestBed.createComponent(TmSystemComponent);
+    fixture.detectChanges();
+    const comp = fixture.componentInstance;
+
+    expect(comp.activeTab).toBe('roles');
+  });
 });

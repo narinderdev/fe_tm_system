@@ -63,7 +63,6 @@ export class MfaSettingsComponent {
           this.secret = String(response?.data?.secret ?? '').trim();
           this.qrCodeImage = String(response?.data?.qrCodeImage ?? '').trim();
           this.otpCode = '';
-          this.toastr.success(response?.message || 'Scan QR and enter OTP to enable MFA.');
           this.cdr.detectChanges();
         },
         error: (err) => {

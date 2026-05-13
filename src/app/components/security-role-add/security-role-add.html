@@ -1,0 +1,74 @@
+<section class="role-add-page">
+  <app-loader [visible]="loading"></app-loader>
+
+  <section class="card">
+    <div class="head-row">
+      <button class="back-btn" type="button" (click)="back()" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <h1>Add Role</h1>
+    </div>
+
+    <div class="field">
+      <label>Company</label>
+      <input type="text" [value]="companyLabel" readonly />
+    </div>
+
+    <div class="field">
+      <label>Name</label>
+      <input type="text" [(ngModel)]="roleName" placeholder="e.g. Collections Manager" />
+    </div>
+
+    <div class="field">
+      <label>Description</label>
+      <textarea [(ngModel)]="description" rows="3" placeholder="Describe what this role can do"></textarea>
+    </div>
+
+    <div class="field inline-check">
+      <label><input type="checkbox" [(ngModel)]="technicianRole" /> Technician Role</label>
+    </div>
+
+    <div class="perm-card">
+      <div class="perm-head">
+        <h3>Permissions</h3>
+        <label><input type="checkbox" [(ngModel)]="allPermissions" (change)="toggleAllPermissions()" /> All Permissions</label>
+      </div>
+
+      <div class="perm-grid">
+        <div class="list-box">
+          <div class="box-title">Security Classes</div>
+          <button type="button" *ngFor="let cls of securityClasses" (click)="selectClass(cls)" [class.active]="selectedClass === cls">{{ cls }}</button>
+        </div>
+
+        <div class="list-box">
+          <div class="box-title">Securable Objects</div>
+          <button type="button" *ngFor="let obj of securableObjects" (click)="selectObject(obj)" [class.active]="selectedObject === obj">{{ obj }}</button>
+        </div>
+
+        <div class="table-box">
+          <div class="box-title">Object Permissions</div>
+          <table>
+            <thead><tr><th>View</th><th>Create</th><th>Update</th><th>Delete</th><th>Export</th><th>Approve</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><input type="checkbox" [(ngModel)]="currentPermission.view" [disabled]="!isPermissionAvailable('view')" /></td>
+                <td><input type="checkbox" [(ngModel)]="currentPermission.create" [disabled]="!isPermissionAvailable('create')" /></td>
+                <td><input type="checkbox" [(ngModel)]="currentPermission.update" [disabled]="!isPermissionAvailable('update')" /></td>
+                <td><input type="checkbox" [(ngModel)]="currentPermission.delete" [disabled]="!isPermissionAvailable('delete')" /></td>
+                <td><input type="checkbox" [(ngModel)]="currentPermission.export" [disabled]="!isPermissionAvailable('export')" /></td>
+                <td><input type="checkbox" [(ngModel)]="currentPermission.approve" [disabled]="!isPermissionAvailable('approve')" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="cancel" (click)="back()">Cancel</button>
+      <button type="button" class="save" [disabled]="saving" (click)="save()">Create Role</button>
+    </div>
+  </section>
+</section>

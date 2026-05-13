@@ -1,0 +1,34 @@
+<section class="security-card">
+  <app-loader [visible]="loading"></app-loader>
+
+  <div class="toolbar">
+    <h3>Users</h3>
+  </div>
+
+  <p class="error" *ngIf="error">{{ error }}</p>
+  <p *ngIf="!loading && !error && !rows.length">No users found.</p>
+
+  <div class="table-wrap" *ngIf="rows.length">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td>{{ fullName(row) }}</td>
+          <td>{{ row.email }}</td>
+          <td>{{ row.role }}</td>
+          <td><span class="pill" [class.active]="row.active">{{ row.status }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager">
+    <span>Page {{ page + 1 }} of {{ totalPages() }}</span>
+    <div>
+      <button type="button" (click)="changePage(-1)" [disabled]="page === 0">Previous</button>
+      <button type="button" (click)="changePage(1)" [disabled]="page + 1 >= totalPages()">Next</button>
+    </div>
+  </div>
+</section>
