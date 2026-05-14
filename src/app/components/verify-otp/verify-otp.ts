@@ -52,7 +52,7 @@ export class VerifyOtpComponent implements OnInit {
             this.email = storedEmail;
           } else {
             this.toastr.warning('Please complete signup first');
-            this.router.navigate(['/sign-up']);
+            this.router.navigate(['/login']);
           }
         }
       }
@@ -210,6 +210,6 @@ export class VerifyOtpComponent implements OnInit {
   }
 
   editEmail() {
-    this.router.navigate(['/sign-up']);
+    this.router.navigate(['/login']);
   }
 }

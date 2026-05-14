@@ -19,6 +19,7 @@ export class VerifyAccountComponent {
   otpCode = '';
   loading = false;
   email = '';
+  private autoSubmitTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly isBrowser: boolean;
 
@@ -36,9 +37,11 @@ export class VerifyAccountComponent {
 
   onOtpValueChange(code: string): void {
     this.otpCode = code;
+    this.scheduleAutoSubmit();
   }
 
   verifyOtp(): void {
+    this.clearAutoSubmitTimer();
     if (this.loading || !this.email) {
       return;
     }
@@ -109,6 +112,30 @@ export class VerifyAccountComponent {
           this.toastr.error(err?.error?.message || 'OTP verification failed.');
         }
       });
+  }
+
+  private scheduleAutoSubmit(): void {
+    if (this.loading) {
+      return;
+    }
+    const code = String(this.otpCode ?? '');
+    const isValidOtp = new RegExp(`^\\d{${this.otpLength}}$`).test(code);
+    if (!isValidOtp) {
+      this.clearAutoSubmitTimer();
+      return;
+    }
+    this.clearAutoSubmitTimer();
+    this.autoSubmitTimer = setTimeout(() => {
+      this.autoSubmitTimer = null;
+      this.verifyOtp();
+    }, 150);
+  }
+
+  private clearAutoSubmitTimer(): void {
+    if (this.autoSubmitTimer) {
+      clearTimeout(this.autoSubmitTimer);
+      this.autoSubmitTimer = null;
+    }
   }
 
   private initializeEmail(): void {

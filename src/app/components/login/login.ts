@@ -133,6 +133,7 @@ export class LoginComponent {
               : undefined));
           const message = response?.message || (isSuccess ? 'Login successful' : 'Invalid credentials');
           const companiesRaw = (response as any)?.data?.companies;
+          const permissionCodes = (response as any)?.data?.permission_codes;
           const companies = Array.isArray(companiesRaw)
             ? companiesRaw
                 .map((company: any) => ({
@@ -236,6 +237,7 @@ export class LoginComponent {
               if (user) {
                 this.permissionService.setFromUser(user);
               }
+              this.permissionService.setPermissionCodes(permissionCodes);
             }
             this.authService.sendLoginEmailOtp({ email }).subscribe({
               next: (otpResponse: any) => {

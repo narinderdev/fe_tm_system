@@ -166,21 +166,6 @@
   z-index: 1;
 }
 
-.signup-text {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.signup-link {
-  color: #3b82f6;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.signup-link:hover {
-  text-decoration: underline;
-}
-
 .input-icon {
   position: absolute;
   right: 12px;

@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
 import { LoginComponent } from './components/login/login';
-import { SignUpComponent } from './components/sign-up/sign-up';
 import { VerifyOtpComponent } from './components/verify-otp/verify-otp';
 import { VerifyAccountComponent } from './components/verify-account/verify-account';
 import { VerifyAuthenticatorComponent } from './components/verify-authenticator/verify-authenticator';
@@ -12,7 +11,7 @@ import { MfaChallengeGuard } from './guards/mfa-challenge.guard';
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: 'login', component: LoginComponent },
-  { path: 'sign-up', component: SignUpComponent },
+  { path: 'sign-up', pathMatch: 'full', redirectTo: 'login' },
   {
     path: 'forgot-password',
     loadComponent: () =>

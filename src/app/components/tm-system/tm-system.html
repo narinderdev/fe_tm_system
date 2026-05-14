@@ -47,7 +47,7 @@
       <nav [class.mobile-hidden]="!mobileMenuOpen">
         <ul>
           <li
-            *ngFor="let item of navItems"
+            *ngFor="let item of visibleNavItems"
             [class.active]="activeTab === item.id"
             (click)="selectTab(item.id)"
             [routerLink]="['/tm-system', item.id]"
@@ -63,6 +63,7 @@
 
           <li
             class="security-parent"
+            *ngIf="hasVisibleSecurityTabs"
             [class.active]="isSecurityActive()"
             [class.expanded]="securityExpanded"
             tabindex="0"
@@ -83,7 +84,7 @@
 
           <li
             class="security-sub-item"
-            *ngFor="let sub of securityTabs"
+            *ngFor="let sub of visibleSecurityTabs"
             [class.active]="activeTab === sub.id"
             [class.mobile-hide-item]="sidebarCollapsed"
             [class.hidden-sub-item]="!securityExpanded"

@@ -6,6 +6,7 @@ type ActionKey = string;
 
 interface StoredPermissions {
   modules: Record<ModuleKey, ActionKey[]>;
+  codes?: string[];
 }
 
 interface StoredUserProfile {
@@ -71,9 +72,38 @@ export class PermissionService {
       modules['ROLES'] = Array.from(new Set([...current, 'ACCESS']));
     }
 
-    const payload: StoredPermissions = { modules };
+    const payload: StoredPermissions = { modules, codes: this.getStoredCodes() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
+  }
+
+  setPermissionCodes(codes: unknown): void {
+    if (!this.isBrowser) {
+      return;
+    }
+    const normalizedCodes = Array.isArray(codes)
+      ? Array.from(
+          new Set(
+            codes
+              .map((code) => String(code ?? '').trim().toUpperCase())
+              .filter((code) => code.length > 0)
+          )
+        )
+      : [];
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    let modules: Record<ModuleKey, ActionKey[]> = {};
+    if (raw) {
+      try {
+        const parsed: StoredPermissions = JSON.parse(raw);
+        modules = parsed?.modules ?? {};
+      } catch {
+        modules = {};
+      }
+    }
+
+    const payload: StoredPermissions = { modules, codes: normalizedCodes };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
   clear(): void {
@@ -117,6 +147,31 @@ export class PermissionService {
     }
   }
 
+  hasPermissionCode(code: string): boolean {
+    if (!this.isBrowser) {
+      return false;
+    }
+    const target = String(code ?? '').trim().toUpperCase();
+    if (!target) {
+      return false;
+    }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return false;
+    }
+    try {
+      const parsed: StoredPermissions = JSON.parse(raw);
+      const codes = (parsed?.codes ?? []).map((value) => String(value ?? '').trim().toUpperCase());
+      return codes.includes(target);
+    } catch {
+      return false;
+    }
+  }
+
+  hasAnyPermissionCode(codes: string[]): boolean {
+    return codes.some((code) => this.hasPermissionCode(code));
+  }
+
   getCurrentUser(): StoredUserProfile | null {
     if (!this.isBrowser) {
       return null;
@@ -142,5 +197,20 @@ export class PermissionService {
       return names.join(' ');
     }
     return user.email || '';
+  }
+
+  private getStoredCodes(): string[] {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    try {
+      const parsed: StoredPermissions = JSON.parse(raw);
+      return Array.isArray(parsed?.codes)
+        ? parsed.codes.map((code) => String(code ?? '').trim().toUpperCase()).filter((code) => code.length > 0)
+        : [];
+    } catch {
+      return [];
+    }
   }
 }

@@ -38,6 +38,11 @@ interface NavItem {
   icon: string;
 }
 
+interface SecurityTabItem {
+  id: SecurityTabId;
+  label: string;
+}
+
 type SecurityTabId = 'roles' | 'users' | 'mfa' | 'security-report';
 type TabId = 'dashboard' | 'technicians' | 'teams' | 'work-orders' | 'leaves' | 'time-sheet' | 'expenses' | SecurityTabId | 'settings';
 type PayCodeType = 'worked' | 'non-worked' | 'premium';
@@ -262,7 +267,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     { id: 'time-sheet', label: 'Time Sheet', icon: 'proicons_document.svg' },
     { id: 'expenses', label: 'Expenses', icon: 'proicons_document.svg' }
   ];
-  readonly securityTabs: Array<{ id: SecurityTabId; label: string }> = [
+  readonly securityTabs: SecurityTabItem[] = [
     { id: 'roles', label: 'Roles' },
     { id: 'users', label: 'Users' },
     { id: 'mfa', label: 'MFA' },
@@ -480,9 +485,14 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadCompanyOptions();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      const tab = (params.get('tab') as TabId | null) || 'dashboard';
-      this.activeTab = this.isValidTab(tab) ? tab : 'dashboard';
-      if (!this.isValidTab(tab)) {
+      const requestedTab = (params.get('tab') as TabId | null) || 'dashboard';
+      const fallbackTab = this.firstAccessibleTab();
+      const resolvedTab =
+        this.isValidTab(requestedTab) && this.canAccessTab(requestedTab)
+          ? requestedTab
+          : fallbackTab;
+      this.activeTab = resolvedTab;
+      if (!this.isValidTab(requestedTab) || !this.canAccessTab(requestedTab)) {
         this.router.navigate(['/tm-system', this.activeTab], { replaceUrl: true });
       }
       this.loadTabData(this.activeTab);
@@ -500,6 +510,9 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   selectTab(id: TabId) {
+    if (!this.canAccessTab(id)) {
+      return;
+    }
     if (id === this.activeTab) {
       this.mobileMenuOpen = false;
       return;
@@ -514,11 +527,11 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   isSecurityActive(): boolean {
-    return this.securityTabs.some(tab => tab.id === this.activeTab);
+    return this.visibleSecurityTabs.some(tab => tab.id === this.activeTab);
   }
 
   get activeNav(): NavItem | undefined {
-    return this.navItems.find(item => item.id === this.activeTab);
+    return this.visibleNavItems.find(item => item.id === this.activeTab);
   }
 
   get activeLabel(): string {
@@ -542,6 +555,63 @@ export class TmSystemComponent implements OnInit, OnDestroy {
 
   private isValidTab(value: string): value is TabId {
     return this.securityTabs.some(tab => tab.id === value) || this.navItems.some(i => i.id === value);
+  }
+
+  get visibleNavItems(): NavItem[] {
+    return this.navItems.filter((item) => this.canAccessTab(item.id));
+  }
+
+  get visibleSecurityTabs(): SecurityTabItem[] {
+    return this.securityTabs.filter((item) => this.canAccessTab(item.id));
+  }
+
+  get hasVisibleSecurityTabs(): boolean {
+    return this.visibleSecurityTabs.length > 0;
+  }
+
+  private firstAccessibleTab(): TabId {
+    const firstNav = this.visibleNavItems[0]?.id;
+    if (firstNav) {
+      return firstNav;
+    }
+    const firstSecurity = this.visibleSecurityTabs[0]?.id;
+    if (firstSecurity) {
+      return firstSecurity;
+    }
+    return 'dashboard';
+  }
+
+  private canAccessTab(tab: TabId): boolean {
+    switch (tab) {
+      case 'dashboard':
+        return this.hasAnyCodeOrPermission(['VIEW_DASHBOARD', 'VIEW_TM_DASHBOARD'], 'DASHBOARD', 'VIEW');
+      case 'technicians':
+        return this.hasAnyCodeOrPermission(['VIEW_TECHNICIAN'], 'TECHNICIAN', 'VIEW');
+      case 'teams':
+        return this.hasAnyCodeOrPermission(['VIEW_TECHNICIAN_TEAM'], 'TECHNICIAN_TEAM', 'VIEW');
+      case 'work-orders':
+        return this.hasAnyCodeOrPermission(['VIEW_WORK_ORDER'], 'WORK_ORDER', 'VIEW');
+      case 'leaves':
+        return this.hasAnyCodeOrPermission(['VIEW_PTO_HOLIDAY'], 'PTO_HOLIDAY', 'VIEW');
+      case 'time-sheet':
+        return this.hasAnyCodeOrPermission(['VIEW_TIMESHEET'], 'TIMESHEET', 'VIEW');
+      case 'expenses':
+        return this.hasAnyCodeOrPermission(['VIEW_EXPENSE'], 'EXPENSE', 'VIEW');
+      case 'roles':
+        return this.hasAnyCodeOrPermission(['MANAGE_ROLES', 'VIEW_ROLES'], 'MANAGE_ROLES', 'ACCESS');
+      case 'users':
+        return this.hasAnyCodeOrPermission(['MANAGE_USERS', 'VIEW_USERS', 'VIEW_INVITE_USER'], 'MANAGE_USERS', 'ACCESS');
+      case 'security-report':
+        return this.hasAnyCodeOrPermission(['VIEW_REPORTS', 'EXPORT_REPORTS'], 'REPORTS', 'VIEW');
+      case 'mfa':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private hasAnyCodeOrPermission(codes: string[], module: string, action: string): boolean {
+    return this.permissionService.hasAnyPermissionCode(codes) || this.permissionService.hasPermission(module, action);
   }
 
   private loadTabData(tab: TabId): void {
@@ -4599,6 +4669,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   signOut(): void {
+    this.permissionService.clear();
     localStorage.removeItem('authToken');
     localStorage.removeItem('mfa_token');
     localStorage.removeItem('mfaEnabled');

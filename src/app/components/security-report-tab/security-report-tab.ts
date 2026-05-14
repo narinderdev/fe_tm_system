@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, NgZone, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize, take } from 'rxjs';
 import { Loader } from '../loader/loader';
@@ -36,7 +36,11 @@ export class SecurityReportTabComponent implements OnInit {
   exportMenuOpen = false;
   readonly actionColumns = ['VIEW', 'CREATE', 'UPDATE', 'DELETE', 'APPROVE', 'ACCESS', 'EXPORT'];
 
-  constructor(private readonly securityService: SecurityService) {}
+  constructor(
+    private readonly securityService: SecurityService,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly ngZone: NgZone
+  ) {}
 
   ngOnInit(): void {
     this.load();
@@ -52,7 +56,7 @@ export class SecurityReportTabComponent implements OnInit {
     }
     this.companyId = companyId;
 
-    this.loading = true;
+    this.setLoading(true);
     this.error = '';
     const query = {
       companyId,
@@ -63,7 +67,12 @@ export class SecurityReportTabComponent implements OnInit {
       ? this.securityService.fetchSecurityReportByObject(query)
       : this.securityService.fetchSecurityReportByRole(query);
     request$
-      .pipe(take(1), finalize(() => (this.loading = false)))
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.setLoading(false);
+        })
+      )
       .subscribe({
         next: (res: any) => {
           const raw = res?.data ?? [];
@@ -86,11 +95,13 @@ export class SecurityReportTabComponent implements OnInit {
           this.roles = Array.from(new Set(this.rows.map((r) => r.role)));
           this.objects = Array.from(new Set(this.rows.map((r) => r.object)));
           this.applyFilters();
+          this.setLoading(false);
         },
         error: (err) => {
           this.rows = [];
           this.filteredRows = [];
           this.error = String(err?.error?.message ?? 'Failed to load security report.');
+          this.setLoading(false);
         }
       });
   }
@@ -264,5 +275,12 @@ export class SecurityReportTabComponent implements OnInit {
     });
     autoTable(doc, { head, body, styles: { fontSize: 8 } });
     doc.save(`security-report-${this.viewMode}.pdf`);
+  }
+
+  private setLoading(value: boolean): void {
+    this.ngZone.run(() => {
+      this.loading = value;
+      this.cdr.detectChanges();
+    });
   }
 }
