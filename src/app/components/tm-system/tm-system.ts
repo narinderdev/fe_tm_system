@@ -13,6 +13,7 @@ import { TimesheetService } from '../../services/timesheet.service';
 import { ToastrService } from 'ngx-toastr';
 import { PermissionService } from '../../services/permission.service';
 import { UserManagementService } from '../../services/user-management.service';
+import { AuthService } from '../../services/auth.service';
 import { MfaSettingsComponent } from '../mfa-settings/mfa-settings';
 import { ExpensesService, ExpenseListItem, CreateExpensePayload } from '../../services/expenses.service';
 import { SecurityRolesTabComponent } from '../security-roles-tab/security-roles-tab';
@@ -476,6 +477,7 @@ export class TmSystemComponent implements OnInit, OnDestroy {
     private timesheetService: TimesheetService,
     private expensesService: ExpensesService,
     private userManagementService: UserManagementService,
+    private authService: AuthService,
     private permissionService: PermissionService,
     private toastr: ToastrService,
     private cdr: ChangeDetectorRef,
@@ -4669,21 +4671,33 @@ export class TmSystemComponent implements OnInit, OnDestroy {
   }
 
   signOut(): void {
-    this.permissionService.clear();
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('mfa_token');
-    localStorage.removeItem('mfaEnabled');
-    localStorage.removeItem('emailOtpVerified');
-    localStorage.removeItem('authenticatorVerified');
-    localStorage.removeItem('loginEmail');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userCompanies');
-    localStorage.removeItem('selectedCompanyId');
-    localStorage.removeItem('selectedCompanyNumber');
-    localStorage.removeItem('selectedCompanyTradeName');
-    localStorage.removeItem('selectedCompanyLegalName');
-    this.router.navigate(['/login']);
+    const token = String(localStorage.getItem('authToken') ?? '').trim();
+    this.authService
+      .logout(token || undefined)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.permissionService.clear();
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('mfa_token');
+          localStorage.removeItem('mfaEnabled');
+          localStorage.removeItem('emailOtpVerified');
+          localStorage.removeItem('authenticatorVerified');
+          localStorage.removeItem('loginEmail');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userCompanies');
+          localStorage.removeItem('selectedCompanyId');
+          localStorage.removeItem('selectedCompanyNumber');
+          localStorage.removeItem('selectedCompanyTradeName');
+          localStorage.removeItem('selectedCompanyLegalName');
+          this.router.navigate(['/login']);
+        })
+      )
+      .subscribe({
+        next: () => void 0,
+        error: () => void 0
+      });
   }
 
   openInviteTechnician(): void {
